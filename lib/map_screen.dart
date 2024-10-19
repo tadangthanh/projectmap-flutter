@@ -1,6 +1,14 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
+import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:map/bloc/map/map_bloc.dart';
+import 'package:map/bloc/map/map_state.dart';
+
+import 'bloc/map/map_event.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -9,146 +17,284 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
-  final Location _location = Location();
-  late GoogleMapController _googleMapController;
-  late LocationData _currentPosition;
-  Set<Marker> _markers = {}; // Để lưu trữ các marker trên bản đồ
-  bool _isLoading = true; // Để kiểm soát hiển thị trong khi chờ lấy vị trí
-  MapType _currentMapType = MapType.normal; // Kiểu bản đồ mặc định là bản đồ thường
+class _MapScreenState extends State<MapScreen>
+    with SingleTickerProviderStateMixin {
+  final MapBloc _mapBloc = MapBloc();
+  late AnimationController _controller;
+  bool _isPanelOpen = false;
+
+  void _togglePanel() {
+    setState(() {
+      _isPanelOpen = !_isPanelOpen;
+      _isPanelOpen ? _controller.forward() : _controller.reverse();
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation(); // Lấy vị trí hiện tại khi ứng dụng khởi động
-    _location.onLocationChanged.listen((LocationData currentLocation) {
-      // Cập nhật vị trí khi có sự thay đổi
-      _updateLocation(currentLocation);
-    });
-  }
-
-  // Hàm lấy vị trí hiện tại của người dùng
-  void _getCurrentLocation() async {
-    bool _serviceEnabled;
-    PermissionStatus _permissionGranted;
-
-    // Kiểm tra và yêu cầu bật dịch vụ vị trí
-    _serviceEnabled = await _location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await _location.requestService();
-      if (!_serviceEnabled) {
-        return;
-      }
-    }
-
-    // Kiểm tra quyền truy cập vị trí
-    _permissionGranted = await _location.hasPermission();
-    if (_permissionGranted == PermissionStatus.denied) {
-      _permissionGranted = await _location.requestPermission();
-      if (_permissionGranted != PermissionStatus.granted) {
-        return;
-      }
-    }
-
-    // Lấy vị trí hiện tại
-    _currentPosition = await _location.getLocation();
-
-    // Cập nhật vị trí camera và thêm marker
-    setState(() {
-      _isLoading = false; // Đã lấy xong vị trí, ẩn loading
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('currentLocation'),
-          position: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-          infoWindow: const InfoWindow(title: 'Vị trí hiện tại'),
-        ),
-      );
-    });
-
-    // Điều hướng camera tới vị trí hiện tại
-    _googleMapController.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-          zoom: 16.0,
-        ),
-      ),
+    _initializeMapRenderer();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
     );
   }
 
-  // Cập nhật vị trí khi có sự thay đổi
-  void _updateLocation(LocationData currentLocation) {
-    setState(() {
-      _currentPosition = currentLocation; // Cập nhật vị trí hiện tại
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('currentLocation'),
-          position: LatLng(currentLocation.latitude!, currentLocation.longitude!),
-          infoWindow: const InfoWindow(title: 'Vị trí hiện tại'),
-        ),
-      );
-
-      // Điều hướng camera tới vị trí mới
-      _googleMapController.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(currentLocation.latitude!, currentLocation.longitude!),
-            zoom: 16.0,
-          ),
-        ),
-      );
-    });
-  }
-
-  // Hàm chuyển đổi kiểu bản đồ
-  void _toggleMapType() {
-    setState(() {
-      // Chuyển đổi giữa bản đồ vệ tinh (hybrid) và bản đồ thường
-      _currentMapType = _currentMapType == MapType.normal
-          ? MapType.hybrid // Sử dụng hybrid để giữ nhãn
-          : MapType.normal; // Chuyển về bản đồ thường
-    });
+  void _initializeMapRenderer() {
+    final GoogleMapsFlutterPlatform mapsImplementation =
+        GoogleMapsFlutterPlatform.instance;
+    if (mapsImplementation is GoogleMapsFlutterAndroid) {
+      mapsImplementation.useAndroidViewSurface = true;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator()) // Hiển thị loading khi đang lấy vị trí
-          : GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-          zoom: 16.0,
-        ),
-        myLocationEnabled: true, // Hiển thị vị trí của người dùng
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
-        markers: _markers, // Thêm marker lên bản đồ
-        mapType: _currentMapType, // Áp dụng kiểu bản đồ hiện tại
-        onMapCreated: (controller) => _googleMapController = controller,
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+    return BlocProvider(
+      create: (context) => _mapBloc,
+      child: BlocBuilder<MapBloc, MapState>(builder: (context, state) {
+        if (state is LoadingMapState) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        } else if (state is LoadedMapState) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Bản đồ'),
+            ),
+            body: Center(
+              child: Stack(
+                children: [
+                  // Bản đồ
+                  GoogleMap(
+                    buildingsEnabled: true,
+                    trafficEnabled: true,
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(state.locationData.latitude!,
+                          state.locationData.longitude!),
+                      zoom: 16.0,
+                    ),
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    markers: state.markers,
+                    mapType: state.currentMapType,
+                    onMapCreated: (controller) {
+                      BlocProvider.of<MapBloc>(context)
+                          .add(LoadedMapControllerEvent(controller));
+                    },
+                    onCameraMove: (position) {
+                      BlocProvider.of<MapBloc>(context)
+                          .add(MapCameraMoveEvent());
+                    },
+                  ),
+
+                  // Làm mờ bản đồ khi panel mở
+                  if (_isPanelOpen)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: () {
+                          // Đóng panel khi người dùng nhấn vào phần làm mờ
+                          setState(() {
+                            _isPanelOpen = false; // Đóng panel
+                          });
+                        },
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          // Làm mờ
+                          child: Container(
+                            color: Colors.black
+                                .withOpacity(0.5), // Nền màu tối với độ mờ
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Nút mở panel
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      width: 40,
+                      decoration: const BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: FloatingActionButton(
+                          shape: const CircleBorder(),
+                          onPressed: _togglePanel,
+                          child: Image.asset(
+                            'assets/icons/stack.png',
+                            color: Colors.black, // Đặt màu icon là đen
+                            width: 25, // Điều chỉnh chiều rộng
+                            height: 25, // Điều chỉnh chiều cao
+                            fit: BoxFit
+                                .contain, // Đảm bảo ảnh được chứa trong widget
+                          )),
+                    ),
+                  ),
+                  // icon định vị vị trí hiện tại
+                  Positioned(
+                    bottom: 100,
+                    right: 25,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Transform.rotate(
+                          angle: 40 *(3.14 /180),
+                          child: FloatingActionButton(
+                            backgroundColor: Colors.white,
+                            shape: const CircleBorder(),
+                            onPressed: () {
+                              BlocProvider.of<MapBloc>(context).add(
+                                  CurrentLocationEvent()); // Cập nhật lại vị trí hiện tại khi bấm nút
+                            },
+                            child: const Icon(Icons.navigation,color: Colors.blue,),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  ),
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 150),
+                    // Tăng tốc độ trượt lên
+                    bottom: _isPanelOpen ? 0 : -300,
+                    // Chiều cao panel
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 400, // Chiều cao của panel
+                      color: Colors.white,
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  child: const Text("Loại bản đồ"),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close_outlined),
+                                  onPressed: _togglePanel,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: _typeMap('Mặc định',
+                                          MapType.normal, state, context)),
+                                  Expanded(
+                                      child: _typeMap('Vệ tinh', MapType.hybrid,
+                                          state, context)),
+                                  Expanded(
+                                      child: _typeMap('Địa hình',
+                                          MapType.terrain, state, context))
+                                ],
+                              )
+                            ],
+                          ),
+                          Container(
+                            height: 0.5, // Độ dày của đường
+                            color: Colors.grey, // Màu sắc của đường
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(left: 8),
+                                  child: const Text("Chi tiết bản đồ"),
+                                )
+                              ],
+                            ),
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: _typeMap('Mặc định',
+                                          MapType.normal, state, context)),
+                                  Expanded(
+                                      child: _typeMap('Vệ tinh', MapType.hybrid,
+                                          state, context)),
+                                  Expanded(
+                                      child: _typeMap('Địa hình',
+                                          MapType.terrain, state, context))
+                                ],
+                              )
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
+          );
+        }
+        return const Text("ASdasds");
+      }),
+    );
+  }
+
+  Widget _typeMap(title, mapType, state, context) {
+    Map<MapType, String> mapTypeIconAssets = {
+      MapType.normal: 'assets/icons/icon-map-normal.png',
+      MapType.hybrid: 'assets/icons/icon-map-satellite.png',
+      MapType.terrain: 'assets/icons/icon-map-terrain.png',
+    };
+    return ListTile(
+      title: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // Căn giữa nội dung
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          FloatingActionButton(
-            onPressed: () {
-              _getCurrentLocation(); // Cập nhật lại vị trí hiện tại khi bấm nút
-            },
-            child: const Icon(Icons.my_location),
+          // Kiểm tra xem currentMapType có phải là MapType.hybrid không
+          Container(
+            decoration: BoxDecoration(
+              border: state.currentMapType == mapType
+                  ? Border.all(
+                      color: Colors.blue,
+                      width: 3) // Viền xanh nếu loại bản đồ là hybrid
+                  : null,
+              borderRadius: BorderRadius.circular(8), // Bo tròn các góc
+            ),
+            child: Image.asset(
+              mapTypeIconAssets[mapType]!, // Đường dẫn đến hình ảnh bản đồ
+              height: 40, // Chiều cao của hình ảnh
+              width: 40, // Chiều rộng của hình ảnh
+            ),
           ),
-          const SizedBox(height: 10), // Khoảng cách giữa các nút
-          FloatingActionButton(
-            onPressed: _toggleMapType, // Chuyển đổi kiểu bản đồ
-            child: const Icon(Icons.map), // Icon để người dùng biết là chuyển bản đồ
+          const SizedBox(height: 8), // Khoảng cách giữa hình ảnh và văn bản
+          // Văn bản mô tả
+          Text(
+            title,
+            style: TextStyle(
+                color: mapType == state.currentMapType ? Colors.blue : null),
           ),
         ],
       ),
+      onTap: () {
+        BlocProvider.of<MapBloc>(context).add(ChangeMapTypeEvent(mapType));
+      },
     );
   }
 
   @override
   void dispose() {
-    _googleMapController.dispose();
     super.dispose();
+    _mapBloc.close();
   }
 }
