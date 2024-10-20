@@ -24,6 +24,17 @@ class SqliteService {
                 isLocationSharing INTEGER NOT NULL DEFAULT 1
               )
             ''');
+        await db.execute(''' 
+              CREATE TABLE IF NOT EXISTS locations_search_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT NOT NULL,
+                placeId TEXT NOT NULL,
+                mainText TEXT NOT NULL,
+                secondaryText TEXT NULL,
+                createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')) -- Thời gian tạo dưới dạng dấu thời gian Unix
+              )
+            ''');
+
       },
       version: 1,
     );

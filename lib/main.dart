@@ -6,8 +6,11 @@ import 'package:map/bloc/authentication/authentication_bloc.dart';
 import 'package:map/bloc/authentication/authentication_event.dart';
 import 'package:map/bloc/authentication/authentication_state.dart';
 import 'package:map/map_screen.dart';
+import 'package:map/repository/location_search_history_repository.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/service/authentication_service.dart';
+import 'package:map/service/location_search_history_service.dart';
+import 'package:map/service/place_search.dart';
 import 'package:map/service/sql_service.dart';
 import 'package:map/service/user_service.dart';
 
@@ -17,6 +20,9 @@ void main() {
   getIt.registerLazySingleton<SqliteService>((() => SqliteService()));
   getIt.registerLazySingleton<UserRepository>((() => UserRepository()));
   getIt.registerLazySingleton<UserService>((() => UserService()));
+  getIt.registerLazySingleton<PlaceSearch>((() => PlaceSearch()));
+  getIt.registerLazySingleton<LocationSearchHistoryRepo>((() => LocationSearchHistoryRepo()));
+  getIt.registerLazySingleton<LocationSearchHistoryService>((() => LocationSearchHistoryService()));
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
   runApp(const MyApp());
@@ -29,6 +35,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,

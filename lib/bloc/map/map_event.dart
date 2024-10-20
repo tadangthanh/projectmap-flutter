@@ -18,3 +18,7 @@ class  ChangeMapViewEvent extends MapEvent{
   final LatLng latLng;
   ChangeMapViewEvent(this.latLng);
 }
+class ChangeMapDetailEvent extends MapEvent{
+  final bool trafficEnabled;
+  ChangeMapDetailEvent(this.trafficEnabled);
+}

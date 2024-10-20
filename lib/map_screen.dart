@@ -9,6 +9,7 @@ import 'package:map/bloc/map/map_bloc.dart';
 import 'package:map/bloc/map/map_state.dart';
 
 import 'bloc/map/map_event.dart';
+import 'common_view/appbar_search.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -48,6 +49,8 @@ class _MapScreenState extends State<MapScreen>
     }
   }
 
+  bool _isNavigationIcon = false;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -60,7 +63,27 @@ class _MapScreenState extends State<MapScreen>
         } else if (state is LoadedMapState) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Bản đồ'),
+              title: const Text("Map"),
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  // Navigator.pop(context);
+                },
+
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SearchScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             body: Center(
               child: Stack(
@@ -68,7 +91,7 @@ class _MapScreenState extends State<MapScreen>
                   // Bản đồ
                   GoogleMap(
                     buildingsEnabled: true,
-                    trafficEnabled: true,
+                    trafficEnabled: state.trafficEnabled,
                     initialCameraPosition: CameraPosition(
                       target: LatLng(state.locationData.latitude!,
                           state.locationData.longitude!),
@@ -88,7 +111,6 @@ class _MapScreenState extends State<MapScreen>
                           .add(MapCameraMoveEvent());
                     },
                   ),
-
                   // Làm mờ bản đồ khi panel mở
                   if (_isPanelOpen)
                     Positioned.fill(
@@ -120,6 +142,7 @@ class _MapScreenState extends State<MapScreen>
                         shape: BoxShape.circle,
                       ),
                       child: FloatingActionButton(
+                        heroTag: 'panel',
                           shape: const CircleBorder(),
                           onPressed: _togglePanel,
                           child: Image.asset(
@@ -139,17 +162,28 @@ class _MapScreenState extends State<MapScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Transform.rotate(
-                          angle: 40 *(3.14 /180),
-                          child: FloatingActionButton(
-                            backgroundColor: Colors.white,
-                            shape: const CircleBorder(),
-                            onPressed: () {
-                              BlocProvider.of<MapBloc>(context).add(
-                                  CurrentLocationEvent()); // Cập nhật lại vị trí hiện tại khi bấm nút
-                            },
-                            child: const Icon(Icons.navigation,color: Colors.blue,),
-                          ),
+                        FloatingActionButton(
+                          heroTag: 'location',
+                          backgroundColor: Colors.white,
+                          shape: const CircleBorder(),
+                          onPressed: () {
+                            _isNavigationIcon = !_isNavigationIcon;
+                            BlocProvider.of<MapBloc>(context).add(
+                                CurrentLocationEvent()); // Cập nhật lại vị trí hiện tại khi bấm nút
+                          },
+                          child: !_isNavigationIcon
+                              ? Image.asset(
+                                  'assets/icons/navigation.png',
+                                  color: Colors.blue,
+                                  width: 20,
+                                  height: 20,
+                                )
+                              : Image.asset(
+                                  'assets/icons/compass.png',
+                                  color: Colors.blue,
+                                  width: 30,
+                                  height: 30,
+                                ),
                         ),
                         const SizedBox(height: 10),
                       ],
@@ -158,7 +192,7 @@ class _MapScreenState extends State<MapScreen>
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 150),
                     // Tăng tốc độ trượt lên
-                    bottom: _isPanelOpen ? 0 : -300,
+                    bottom: _isPanelOpen ? 0 : -450,
                     // Chiều cao panel
                     left: 0,
                     right: 0,
@@ -190,14 +224,35 @@ class _MapScreenState extends State<MapScreen>
                               Row(
                                 children: [
                                   Expanded(
-                                      child: _typeMap('Mặc định',
-                                          MapType.normal, state, context)),
+                                      child: _typeMap(
+                                          'Mặc định',
+                                          'assets/icons/icon-map-normal.png',
+                                          MapType.normal,
+                                          state,
+                                          context, () {
+                                    BlocProvider.of<MapBloc>(context).add(
+                                        ChangeMapTypeEvent(MapType.normal));
+                                  })),
                                   Expanded(
-                                      child: _typeMap('Vệ tinh', MapType.hybrid,
-                                          state, context)),
+                                      child: _typeMap(
+                                          'Vệ tinh',
+                                          'assets/icons/icon-map-satellite.png',
+                                          MapType.hybrid,
+                                          state,
+                                          context, () {
+                                    BlocProvider.of<MapBloc>(context).add(
+                                        ChangeMapTypeEvent(MapType.hybrid));
+                                  })),
                                   Expanded(
-                                      child: _typeMap('Địa hình',
-                                          MapType.terrain, state, context))
+                                      child: _typeMap(
+                                          'Địa hình',
+                                          'assets/icons/icon-map-terrain.png',
+                                          MapType.terrain,
+                                          state,
+                                          context, () {
+                                    BlocProvider.of<MapBloc>(context).add(
+                                        ChangeMapTypeEvent(MapType.terrain));
+                                  })),
                                 ],
                               )
                             ],
@@ -218,24 +273,24 @@ class _MapScreenState extends State<MapScreen>
                               ],
                             ),
                           ),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                      child: _typeMap('Mặc định',
-                                          MapType.normal, state, context)),
-                                  Expanded(
-                                      child: _typeMap('Vệ tinh', MapType.hybrid,
-                                          state, context)),
-                                  Expanded(
-                                      child: _typeMap('Địa hình',
-                                          MapType.terrain, state, context))
-                                ],
+                              SizedBox(
+                                width: MediaQuery.of(context).size.width / 3,
+                                child: _mapDetailElement(
+                                    'Giao thông',
+                                    'assets/icons/icon-map-traffic.png',
+                                    state.trafficEnabled,
+                                    state,
+                                    context, () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      ChangeMapDetailEvent(
+                                          !state.trafficEnabled));
+                                }),
                               )
                             ],
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -250,12 +305,8 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
-  Widget _typeMap(title, mapType, state, context) {
-    Map<MapType, String> mapTypeIconAssets = {
-      MapType.normal: 'assets/icons/icon-map-normal.png',
-      MapType.hybrid: 'assets/icons/icon-map-satellite.png',
-      MapType.terrain: 'assets/icons/icon-map-terrain.png',
-    };
+  Widget _typeMap(title, String assetIconUrl, mapType, state, context,
+      Function()? function) {
     return ListTile(
       title: Column(
         mainAxisAlignment: MainAxisAlignment.center, // Căn giữa nội dung
@@ -272,7 +323,7 @@ class _MapScreenState extends State<MapScreen>
               borderRadius: BorderRadius.circular(8), // Bo tròn các góc
             ),
             child: Image.asset(
-              mapTypeIconAssets[mapType]!, // Đường dẫn đến hình ảnh bản đồ
+              assetIconUrl, // Đường dẫn đến hình ảnh bản đồ
               height: 40, // Chiều cao của hình ảnh
               width: 40, // Chiều rộng của hình ảnh
             ),
@@ -287,7 +338,46 @@ class _MapScreenState extends State<MapScreen>
         ],
       ),
       onTap: () {
-        BlocProvider.of<MapBloc>(context).add(ChangeMapTypeEvent(mapType));
+        // BlocProvider.of<MapBloc>(context).add(ChangeMapTypeEvent(mapType));
+        function!();
+      },
+    );
+  }
+
+  Widget _mapDetailElement(title, String assetIconUrl, isEnabled, state,
+      context, Function()? function) {
+    return ListTile(
+      title: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // Căn giữa nội dung
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Kiểm tra xem currentMapType có phải là MapType.hybrid không
+          Container(
+            decoration: BoxDecoration(
+              border: isEnabled == true
+                  ? Border.all(
+                      color: Colors.blue,
+                      width: 3) // Viền xanh nếu loại bản đồ là hybrid
+                  : null,
+              borderRadius: BorderRadius.circular(8), // Bo tròn các góc
+            ),
+            child: Image.asset(
+              assetIconUrl, // Đường dẫn đến hình ảnh bản đồ
+              height: 40, // Chiều cao của hình ảnh
+              width: 40, // Chiều rộng của hình ảnh
+            ),
+          ),
+          const SizedBox(height: 8), // Khoảng cách giữa hình ảnh và văn bản
+          // Văn bản mô tả
+          Text(
+            title,
+            style: TextStyle(color: isEnabled == true ? Colors.blue : null),
+          ),
+        ],
+      ),
+      onTap: () {
+        // BlocProvider.of<MapBloc>(context).add(ChangeMapTypeEvent(mapType));
+        function!();
       },
     );
   }
