@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:map/entity/place.dart';
 
 class MapEvent {}
 class InitMapEvent extends MapEvent{}
@@ -21,4 +22,14 @@ class  ChangeMapViewEvent extends MapEvent{
 class ChangeMapDetailEvent extends MapEvent{
   final bool trafficEnabled;
   ChangeMapDetailEvent(this.trafficEnabled);
+}
+class FoundLocationEvent extends MapEvent{
+  final Place place;
+  FoundLocationEvent(this.place);
+}
+
+class DirectionEvent extends MapEvent{
+  final LatLng origin;
+  final LatLng destination;
+  DirectionEvent(this.origin,this.destination);
 }

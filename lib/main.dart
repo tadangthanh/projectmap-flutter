@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map/bloc/authentication/authentication_bloc.dart';
 import 'package:map/bloc/authentication/authentication_event.dart';
 import 'package:map/bloc/authentication/authentication_state.dart';
+import 'package:map/bloc/map/map_bloc.dart';
 import 'package:map/map_screen.dart';
 import 'package:map/repository/location_search_history_repository.dart';
 import 'package:map/repository/user_repository.dart';

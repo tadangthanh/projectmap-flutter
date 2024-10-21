@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -6,16 +7,20 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
+import 'package:map/entity/place.dart';
 import 'package:map/entity/user.dart';
 import 'package:map/main.dart';
+import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
+  final PlaceSearch _placeSearch  = getIt<PlaceSearch>();
   late User _user;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
   late Set<Marker> _markers;
+  late Marker _placeSearchMarker=const Marker(markerId: MarkerId(''));
   late MapType _currentMapType = MapType.normal;
   final Location _location = Location();
   late bool _isFollowCamera = true;
@@ -28,6 +33,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     on<InitMapEvent>((event, emit) async {
       await _init(emit);
     });
+    on<FoundLocationEvent>((event, emit) async {
+      await _foundLocationSearch(emit, event.place);
+    });
     on<LoadedMapControllerEvent>((event, emit) async {
       await _loadedMapControllerState(emit, event);
     });
@@ -36,6 +44,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     on<MapCameraMoveEvent>((event, emit) async {
       _isFollowCamera = false;
+    });
+    on<DirectionEvent>((event, emit) async {
+       await _direction(emit,event.origin, event.destination);
     });
     on<ChangeMapDetailEvent>((event, emit) async {
       _trafficEnabled = event.trafficEnabled;
@@ -51,6 +62,49 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     add(InitMapEvent());
   }
+  Future<void> _direction(Emitter<MapState> emit,LatLng origin, LatLng destination) async {
+    // Tạo đường đi giữa 2 điểm
+    // ignore: unused_local_variable
+    List<LatLng> route =await _placeSearch.getPolylinePoints(origin,destination,);
+    Polyline polyline = Polyline(
+      polylineId: const PolylineId('route'),
+      points: route,
+      color: Colors.blue,
+      width: 5,
+    );
+    emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
+        _trafficEnabled, _isFollowCamera,
+        googleMapController: _googleMapController,polyline: polyline));
+  }
+
+
+  Future<void> _foundLocationSearch(Emitter<MapState> emit,Place place) async {
+    _markers.removeWhere((element) => element.markerId.value == _placeSearchMarker.markerId.value);
+    _placeSearchMarker = Marker(
+      markerId: MarkerId(place.placeId),
+      position: LatLng(place.latitude, place.longitude),
+      infoWindow: InfoWindow(title: place.name),
+      icon: BitmapDescriptor.defaultMarker,
+    );
+    _markers.add(
+        _placeSearchMarker
+    );
+   await _googleMapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target:
+          LatLng(place.latitude, place.longitude),
+          zoom: 14.0,
+          tilt: 0,
+        ),
+      ),
+    );
+
+
+    emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
+        _trafficEnabled, _isFollowCamera,
+        googleMapController: _googleMapController,place: place));
+  }
 
   Future<void> _loadedMapControllerState(
       Emitter<MapState> emit, LoadedMapControllerEvent event) async {
@@ -61,7 +115,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
-        googleMapController: event.googleMapController));
+        googleMapController: _googleMapController));
   }
 
   Future<void> _init(Emitter<MapState> emit) async {
@@ -156,9 +210,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // neu follow camera thi _angelView = 0, nguoc lai thi _angelView = 45
     _angelView == 0 ? _angelView = 45 : _angelView = 0;
     _isFollowCamera = true;
-    // emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-    //     _trafficEnabled, _isFollowCamera,
-    //     googleMapController: _googleMapController));
   }
 
   Future<void> _updateLocation(LocationData currentLocation) async {

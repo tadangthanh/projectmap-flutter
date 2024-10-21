@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:map/bloc/search/search_bloc.dart';
 import 'package:map/bloc/search/search_state.dart';
-import 'package:map/entity/place_prediction.dart';
 
 import '../bloc/search/search_event.dart';
 
@@ -37,12 +36,11 @@ class _SearchScreenState extends State<SearchScreen> {
             builder: (context) {
               return BlocBuilder<SearchBloc, SearchState>(
                 builder: (context, state) {
-                  if (state is SearchPendingState ||
-                      state is SearchSuggestionsState) {
+                  if (state is SearchSuggestionsState) {
                     return TextField(
                       onSubmitted: (query) {
                         BlocProvider.of<SearchBloc>(context)
-                            .add(ExecuteSearchEvent(placePrediction: PlacePrediction('', '', query, '', DateTime.now())));
+                            .add(ExecuteSearchEvent(placePrediction: state.suggestions.first));
                       },
                       focusNode: searchFocusNode,
                       controller: controller,
@@ -67,6 +65,10 @@ class _SearchScreenState extends State<SearchScreen> {
                     );
                   }else if(state is SearchFailure){
                    return _alertDialog(context, state.message);
+                  }else if (state is FinishSearchState){
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.pop(context,state.place);
+                    });
                   }
                   return const Text('Tìm kiếm địa điểm');
                 },
@@ -83,10 +85,7 @@ class _SearchScreenState extends State<SearchScreen> {
               }
               return _listLocationBuilder(
                   context, state.suggestions, Icons.search);
-            } else if (state is SearchPendingState) {
-              return _listLocationBuilder(
-                  context, state.history, Icons.access_time);
-            } else if(state is SearchLoading){
+            }else if(state is SearchLoading){
               return const Center(child: CircularProgressIndicator());
             }else if(state is SearchFailure){
               return _alertDialog(context, state.message);
