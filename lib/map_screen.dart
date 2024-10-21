@@ -32,20 +32,11 @@ class _MapScreenState extends State<MapScreen>
   @override
   void initState() {
     super.initState();
-    // _initializeMapRenderer();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 150),
     );
   }
-
-  // void _initializeMapRenderer() {
-  //   final GoogleMapsFlutterPlatform mapsImplementation =
-  //       GoogleMapsFlutterPlatform.instance;
-  //   if (mapsImplementation is GoogleMapsFlutterAndroid) {
-  //     mapsImplementation.useAndroidViewSurface = true;
-  //   }
-  // }
 
   bool _isNavigationIcon = false;
 
@@ -75,6 +66,10 @@ class _MapScreenState extends State<MapScreen>
                 children: [
                   // Bản đồ
                   GoogleMap(
+                    onTap: (latLng) {
+
+                    },
+                    mapToolbarEnabled:false,
                     buildingsEnabled: true,
                     trafficEnabled: state.trafficEnabled,
                     initialCameraPosition: CameraPosition(
@@ -82,7 +77,7 @@ class _MapScreenState extends State<MapScreen>
                           state.locationData.longitude!),
                       zoom: 16.0,
                     ),
-                    myLocationEnabled: true,
+                    // myLocationEnabled: true,
                     myLocationButtonEnabled: false,
                     zoomControlsEnabled: false,
                     markers: state.markers,
@@ -142,7 +137,7 @@ class _MapScreenState extends State<MapScreen>
             ),
           );
         }
-        return const Text("Error");
+        return const SizedBox();
       }),
     );
   }

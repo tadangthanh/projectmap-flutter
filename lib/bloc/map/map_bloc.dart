@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
@@ -16,13 +18,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late Set<Marker> _markers;
   late MapType _currentMapType = MapType.normal;
   final Location _location = Location();
-  late BitmapDescriptor _customIcon = BitmapDescriptor.defaultMarker;
-  late BitmapDescriptor _star = BitmapDescriptor.defaultMarker;
-
   late bool _isFollowCamera = true;
   late double _angelView = 0;
   late double _zoom = 16.0;
   late bool _trafficEnabled = false;
+  late BitmapDescriptor _customMarkerUser;
 
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
@@ -59,7 +59,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       // Cập nhật vị trí khi có sự thay đổi
       _updateLocation(currentLocation);
     });
-    emit(LoadedMapState(_currentPosition, _markers, MapType.normal,
+    emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
         googleMapController: event.googleMapController));
   }
@@ -78,10 +78,21 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       emit(LoadingMapState());
       return;
     }
-    _customMarker(user.avatarUrl);
+    Set<Marker> markers = await _initMarker(user, currentLocation);
+    _markers = markers;
+    _user = user;
+    _currentPosition = currentLocation;
+    _trafficEnabled = false;
+    emit(LoadedMapState(currentLocation, markers, _currentMapType,
+        _trafficEnabled, _isFollowCamera,
+        googleMapController: null));
+  }
+
+  Future<Set<Marker>> _initMarker(user, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
-    Set<Marker> markers = {
+    _customMarkerUser = await _convertAvatarUrlToBitMapDescriptor(user);
+    return {
       Marker(
         markerId: const MarkerId('HoangSa'),
         position: hoangSa,
@@ -98,16 +109,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         markerId: MarkerId(user.googleId),
         position: LatLng(currentLocation.latitude!, currentLocation.longitude!),
         infoWindow: const InfoWindow(title: 'Vị trí hiện tại'),
-        icon: BitmapDescriptor.defaultMarker,
+        icon: _customMarkerUser,
       ),
     };
-    _user = user;
-    _currentPosition = currentLocation;
-    _markers = markers;
-    _trafficEnabled = false;
-    emit(LoadedMapState(currentLocation, markers, _currentMapType,
-        _trafficEnabled, _isFollowCamera,
-        googleMapController: null));
   }
 
   Future<bool> _isOpenLocationService(Location location) async {
@@ -138,9 +142,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
   Future<void> _getCurrentLocation(Emitter<MapState> emit) async {
     // neu _isFollowCamera = false thi zoom = 16.0, nguoc lai thi zoom = 19.0
-
     _zoom = _zoom == 16.0 ? 19.0 : 16.0;
-
     _googleMapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
@@ -154,9 +156,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // neu follow camera thi _angelView = 0, nguoc lai thi _angelView = 45
     _angelView == 0 ? _angelView = 45 : _angelView = 0;
     _isFollowCamera = true;
-    emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-        _trafficEnabled, _isFollowCamera,
-        googleMapController: _googleMapController));
+    // emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
+    //     _trafficEnabled, _isFollowCamera,
+    //     googleMapController: _googleMapController));
   }
 
   Future<void> _updateLocation(LocationData currentLocation) async {
@@ -165,7 +167,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _markers.removeWhere((marker) => marker.markerId.value == _user.googleId);
     _markers.add(
       Marker(
-        icon: _customIcon,
+        icon: _customMarkerUser,
         markerId: MarkerId(_user.googleId),
         position: LatLng(currentLocation.latitude!, currentLocation.longitude!),
         infoWindow: const InfoWindow(title: 'Vị trí hiện tại'),
@@ -184,6 +186,24 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           ),
         ),
       );
+    }
+  }
+
+  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(user) async {
+    // Tải ảnh từ URL
+    final url = user.avatarUrl; // Thay thế bằng URL thực tế
+    if (url == null || url.trim().isEmpty) {
+      return BitmapDescriptor.asset(
+          const ImageConfiguration(
+            size: Size(35, 35),
+          ),
+          'assets/icons/user-location.png');
+    }
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      return BitmapDescriptor.bytes(response.bodyBytes, width: 35, height: 35);
+    } else {
+      throw Exception('Failed to load marker image');
     }
   }
 
