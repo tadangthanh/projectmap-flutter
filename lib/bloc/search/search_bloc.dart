@@ -1,8 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:map/bloc/map/map_bloc.dart';
-import 'package:map/bloc/map/map_event.dart';
-import 'package:map/bloc/map/map_state.dart';
+import 'package:location/location.dart';
+// import 'package:geocoding/geocoding.dart';
 import 'package:map/bloc/search/search_event.dart';
 import 'package:map/bloc/search/search_state.dart';
 import 'package:map/entity/place.dart';
@@ -13,6 +11,7 @@ import 'package:map/service/place_search.dart';
 
 class SearchBloc extends Bloc<SearchEvent, SearchState> {
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
+  final Location _location = Location();
   final List<PlacePrediction> _history = [];
   final LocationSearchHistoryService _locationSearchHistoryService =
       getIt<LocationSearchHistoryService>();
@@ -52,27 +51,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       Emitter<SearchState> emit, PlacePrediction placePrediction) async {
     emit(SearchLoading()); // Phát trạng thái đang tìm kiếm
     Place place =
-        await _placeSearch.searchPlaceDetailById(placePrediction.placeId);
+        await _placeSearch.searchPlaceDetailById(placePrediction.placeId, await _location.getLocation());
     emit(FinishSearchState(place)); // Phát trạng thái tìm kiếm thành công
-    // return;
-    // try {
-    //   List<Location> locations =
-    //       await locationFromAddress(placePrediction.mainText);
-    //
-    //   // Kiểm tra nếu danh sách locations không rỗng
-    //   if (locations.isNotEmpty) {
-    //     double latitude = locations.first.latitude;
-    //     double longitude = locations.first.longitude;
-    //
-    //     print('Tọa độ: ($latitude, $longitude)');
-    //     await _locationSearchHistoryService.saveLocationSearch(placePrediction);
-    //   } else {
-    //     print('Không tìm thấy vị trí cho địa chỉ: ${placePrediction.mainText}');
-    //   }
-    // } catch (e) {
-    //   emit(SearchFailure(
-    //       'Không tìm thấy địa chỉ')); // Phát trạng thái thất bại với thông báo lỗi
-    //   print('Lỗi: $e'); // In ra lỗi nếu có
-    // }
   }
 }

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
+import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/user.dart';
 import 'package:map/main.dart';
@@ -65,16 +66,16 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _direction(Emitter<MapState> emit,LatLng origin, LatLng destination) async {
     // Tạo đường đi giữa 2 điểm
     // ignore: unused_local_variable
-    List<LatLng> route =await _placeSearch.getPolylinePoints(origin,destination,);
-    Polyline polyline = Polyline(
-      polylineId: const PolylineId('route'),
-      points: route,
-      color: Colors.blue,
-      width: 5,
-    );
+    DirectionInfo directionInfo =await _placeSearch.getPolylinePoints(origin,destination,);
+    // Polyline polyline = Polyline(
+    //   polylineId: const PolylineId('route'),
+    //   points: route,
+    //   color: Colors.blue,
+    //   width: 5,
+    // );
     emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
-        googleMapController: _googleMapController,polyline: polyline));
+        googleMapController: _googleMapController,directionInfo: directionInfo));
   }
 
 

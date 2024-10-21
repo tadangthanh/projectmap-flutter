@@ -85,83 +85,81 @@ class _MapScreenState extends State<MapScreen>
               ),
               actions: _actions(context),
             ),
-            body: Center(
-              child: Stack(
-                children: [
-                  // Bản đồ
-                  GoogleMap(
-                    onTap: (latLng) {},
-                    mapToolbarEnabled: false,
-                    buildingsEnabled: true,
-                    trafficEnabled: state.trafficEnabled,
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(state.locationData.latitude!,
-                          state.locationData.longitude!),
-                      zoom: 16.0,
-                    ),
-                    // myLocationEnabled: true,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    markers: state.markers,
-                    mapType: state.currentMapType,
-                    polylines: state.polyline != null
-                        ? {state.polyline!}
-                        : {}, // Hiển thị đường đi
-                    onMapCreated: (controller) {
-                      BlocProvider.of<MapBloc>(context)
-                          .add(LoadedMapControllerEvent(controller));
-                    },
-                    onCameraMove: (position) {
-                      BlocProvider.of<MapBloc>(context)
-                          .add(MapCameraMoveEvent());
-                    },
+            body: Stack(
+              children: [
+                // Bản đồ
+                GoogleMap(
+                  onTap: (latLng) {},
+                  mapToolbarEnabled: false,
+                  buildingsEnabled: true,
+                  trafficEnabled: state.trafficEnabled,
+                  initialCameraPosition: CameraPosition(
+                    target: LatLng(state.locationData.latitude!,
+                        state.locationData.longitude!),
+                    zoom: 16.0,
                   ),
-                  // Làm mờ bản đồ khi panel mở
-                  if (_isPanelOpen)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        onTap: () {
-                          // Đóng panel khi người dùng nhấn vào phần làm mờ
-                          setState(() {
-                            _isPanelOpen = false; // Đóng panel
-                          });
-                        },
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 1, sigmaY: 1),
-                          // Làm mờ
-                          child: Container(
-                            color: Colors.black
-                                .withOpacity(0.2), // Nền màu tối với độ mờ
-                          ),
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  markers: state.markers,
+                  mapType: state.currentMapType,
+                  polylines: state.directionInfo != null
+                      ? {state.directionInfo!.polyline} // Nếu directionInfo khác null, thêm polyline vào tập hợp
+                      : {}, // Nếu null, trả về tập hợp rỗng
+                  onMapCreated: (controller) {
+                    BlocProvider.of<MapBloc>(context)
+                        .add(LoadedMapControllerEvent(controller));
+                  },
+                  onCameraMove: (position) {
+                    BlocProvider.of<MapBloc>(context)
+                        .add(MapCameraMoveEvent());
+                  },
+                ),
+                // Làm mờ bản đồ khi panel mở
+                if (_isPanelOpen)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () {
+                        // Đóng panel khi người dùng nhấn vào phần làm mờ
+                        setState(() {
+                          _isPanelOpen = false; // Đóng panel
+                        });
+                      },
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 1, sigmaY: 1),
+                        // Làm mờ
+                        child: Container(
+                          color: Colors.black
+                              .withOpacity(0.2), // Nền màu tối với độ mờ
                         ),
                       ),
                     ),
-                  // Nút mở panel
-                  Positioned(
-                    top: 26,
-                    right: 26,
-                    child: _typeMapButton(),
                   ),
-                  // icon định vị vị trí hiện tại
-                  Positioned(
-                    bottom: 100,
-                    right: 25,
-                    child: _floatingActionButtons(context),
-                  ),
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 150),
-                    // Tăng tốc độ trượt lên
-                    bottom: _isPanelOpen ? 0 : -450,
-                    // Chiều cao panel
-                    left: 0,
-                    right: 0,
-                    child: _mapMenu(context, state),
-                  ),
-                  state.place != null
-                      ? _draggableWidget(context, state)
-                      : const SizedBox(),
-                ],
-              ),
+                // Nút mở panel
+                Positioned(
+                  top: 26,
+                  right: 26,
+                  child: _typeMapButton(),
+                ),
+                // icon định vị vị trí hiện tại
+                Positioned(
+                  bottom: 100,
+                  right: 25,
+                  child: _floatingActionButtons(context),
+                ),
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 150),
+                  // Tăng tốc độ trượt lên
+                  bottom: _isPanelOpen ? 0 : -450,
+                  // Chiều cao panel
+                  left: 0,
+                  right: 0,
+                  child: _mapMenu(context, state),
+                ),
+                state.place != null
+                    ? _draggableWidget(context, state)
+                    : const SizedBox(),
+              ],
             ),
           );
         }
@@ -173,7 +171,7 @@ class _MapScreenState extends State<MapScreen>
   Widget _draggableWidget(context, state) {
     Place place = state.place;
     return DraggableScrollableSheet(
-      initialChildSize: 0.2, // Kích thước ban đầu
+      initialChildSize: 0.4, // Kích thước ban đầu
       minChildSize: 0.1, // Kích thước tối thiểu
       // maxChildSize: 0.5, // Kích thước tối đa
       builder: (BuildContext context, ScrollController scrollController) {
@@ -203,6 +201,7 @@ class _MapScreenState extends State<MapScreen>
                         place.formattedAddress,
                         style: const TextStyle(fontSize: 16),
                       ),
+                      Text('Khoảng cách: ${place.directionInfo.distance} - Thời gian: ${place.directionInfo.duration}',style: const TextStyle(color: Colors.black),),
                       // Thêm nhiều widget khác vào đây
                       const SizedBox(height: 20),
                       Row(

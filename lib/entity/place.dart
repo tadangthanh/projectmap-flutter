@@ -1,3 +1,5 @@
+import 'package:map/entity/direction_info.dart';
+
 class Place {
   final String placeId;
   final String name; // Tên địa điểm
@@ -5,6 +7,7 @@ class Place {
   final double latitude; // Vĩ độ
   final double longitude; // Kinh độ
   final List<String> photoReferences; // Danh sách đường dẫn ảnh
+  late DirectionInfo  directionInfo;
 
   Place({
     required this.placeId,
@@ -12,7 +15,7 @@ class Place {
     required this.formattedAddress,
     required this.latitude,
     required this.longitude,
-    required this.photoReferences,
+    required this.photoReferences
   });
 
   // Phương thức khởi tạo từ JSON
@@ -35,7 +38,7 @@ class Place {
       formattedAddress: formattedAddress,
       latitude: latitude,
       longitude: longitude,
-      photoReferences: photoReferences,
+      photoReferences: photoReferences
     );
   }
 
