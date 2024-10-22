@@ -63,8 +63,6 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ),
                     );
-                  }else if(state is SearchFailure){
-                   return _alertDialog(context, state.message);
                   }else if (state is FinishSearchState){
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       Navigator.pop(context,state.place);
@@ -86,7 +84,14 @@ class _SearchScreenState extends State<SearchScreen> {
               return _listLocationBuilder(
                   context, state.suggestions, Icons.search);
             }else if(state is SearchLoading){
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                   SizedBox(height: 10,),
+                   Text('Đang tìm kiếm...'),
+                ],
+              ));
             }else if(state is SearchFailure){
               return _alertDialog(context, state.message);
             }
@@ -100,19 +105,23 @@ class _SearchScreenState extends State<SearchScreen> {
   }
   Widget _alertDialog(BuildContext context, String message) {
     return AlertDialog(
-      title: Text('Thông báo'),
+      title: const Text('Thông báo'),
       content: Text(message),
+      backgroundColor: Colors.transparent,
       actions: <Widget>[
         TextButton(
           onPressed: () {
             BlocProvider.of<SearchBloc>(context)
                 .add(InitSearchEvent());
+            Navigator.of(context).pop(); // Đóng dialog
           },
-          child: Text('Đồng ý'),
+          child: const Text('Đồng ý'),
         ),
       ],
     );
   }
+
+
   Widget _listLocationBuilder(context, locations, icon) {
     return ListView.separated(
       separatorBuilder: (context, index) {

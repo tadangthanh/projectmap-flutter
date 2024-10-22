@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
+import 'package:map/entity/route_response.dart';
+import 'package:map/entity/travel_mode_enum.dart';
 
 import '../entity/place_prediction.dart';
 
@@ -35,69 +37,110 @@ class PlaceSearch {
     }
   }
 
-  Future<Place> searchPlaceDetailById(
-      String placeId, LocationData startLocation) async {
+  Future<Place> searchPlaceDetailById(String placeId) async {
     final String url =
-        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$apiKey&language=vi&region=VN';
-
+        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$apiKey&language=vi&region=VN&fields=formatted_address,geometry,name';
     final response = await http.get(Uri.parse(url));
     late Place place;
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = json.decode(response.body);
       place = Place.fromJson(jsonResponse);
-
-      // Sửa lại URL ảnh
-      for (int i = 0; i < place.photoReferences.length; i++) {
-        String photoUrl =
-            'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photoReferences[i]}&key=$apiKey';
-        // Cập nhật URL ảnh trong đối tượng Place (giả sử có một trường `photoUrl`)
-        place.photoReferences[i] =
-            photoUrl; // Giả sử bạn đã thêm một danh sách `photoUrls` vào model Place
-      }
     } else {
       throw Exception('Failed to fetch place detail');
     }
-    DirectionInfo directionInfo = await getPolylinePoints(
-        LatLng(startLocation.latitude!, startLocation.longitude!),
-        LatLng(place.latitude, place.longitude));
-    place.directionInfo = directionInfo;
     return place; // Trả về đối tượng Place
   }
 
+
+
+
   Future<DirectionInfo> getPolylinePoints(LatLng start, LatLng end,
-      {TravelMode mode = TravelMode.driving}) async {
-    List<LatLng> polylineCoordinates = [];
+      {VehicleType mode = VehicleType.TWO_WHEELER}) async {
     PolylinePoints polylinePoints = PolylinePoints();
+    Set<Polyline> polylines = {};
+    final Uri url =
+    Uri.parse("https://routes.googleapis.com/directions/v2:computeRoutes");
 
-    PolylineRequest polylineRequest = PolylineRequest(
-      origin: PointLatLng(start.latitude, start.longitude),
-      destination: PointLatLng(end.latitude, end.longitude),
-      mode: mode, // Thay đổi chế độ di chuyển
-    );
+    // Tạo header
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json',
+      'X-Goog-FieldMask':
+      'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+      'X-Goog-Api-Key': apiKey,
+    };
 
-    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
-      googleApiKey: apiKey,
-      request: polylineRequest,
-    );
-    print("duration text: ${result.durationTexts}");
-    print("distanceTexts text: ${result.distanceTexts}");
-    print("distanceValues text: ${result.distanceValues}");
+    // Tạo body
+    final body = json.encode({
+      'origin': {
+        'location': {
+          'latLng': {
+            'latitude': start.latitude,
+            'longitude': start.longitude,
+          }
+        }
+      },
+      'destination': {
+        'location': {
+          'latLng': {
+            'latitude': end.latitude,
+            'longitude': end.longitude,
+          }
+        }
+      },
+      'travelMode': mode.toString().split('.').last, // Lấy tên enum cho mode
+      'polylineQuality': 'HIGH_QUALITY',
+      'languageCode': 'vi',
+      'computeAlternativeRoutes': true, // Tính thêm các tuyến đường phụ
+    });
 
-    if (result.points.isNotEmpty) {
-      result.points.forEach((PointLatLng point) {
-        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
-      });
+    // Gửi request
+    final response = await http.post(url, headers: headers, body: body);
+
+    // Kiểm tra phản hồi
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final routes = data['routes'];
+
+      // Chuyển đổi dữ liệu JSON thành danh sách các route
+      Set<RouteResponse> routeResponses = routes
+          .map<RouteResponse>((route) => RouteResponse.fromJson(route))
+          .toSet();
+
+      List<String> distances = [];
+      List<String> durations = [];
+
+      for (var result in routeResponses) {
+        List<LatLng> polylineCoordinates = [];  // Tạo mới mỗi khi tạo một tuyến mới
+        List<PointLatLng> avl =
+        polylinePoints.decodePolyline(result.polyline.encodedPolyline);
+
+        if (avl.isNotEmpty) {
+          for (var point in avl) {
+            polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+          }
+        }
+
+        // Tạo một polyline từ các điểm tọa độ
+        Polyline polyline = Polyline(
+          polylineId: PolylineId('route${result.duration}'),
+          points: polylineCoordinates,
+          color: Colors.blue,
+          width: 5,
+        );
+        polylines.add(polyline);
+
+        // Thêm khoảng cách và thời gian
+        distances.add('${result.distanceMeters} meters');
+        durations.add('${result.duration} seconds');
+      }
+
+      // Trả về DirectionInfo chứa polyline, distance và duration
+      return DirectionInfo(
+          polyline: polylines, distance: distances, duration: durations);
+    } else {
+      // Xử lý lỗi khi không nhận được phản hồi thành công từ API
+      throw Exception('Failed to load routes: ${response.body}');
     }
-    Polyline polyline = Polyline(
-      polylineId: const PolylineId('route'),
-      points: polylineCoordinates,
-      color: Colors.blue,
-      width: 5,
-    );
-    return DirectionInfo(
-        polyline: polyline,
-        distance: result.distanceTexts,
-        duration: result.durationTexts);
   }
 }

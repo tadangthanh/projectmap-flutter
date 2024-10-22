@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:location/location.dart';
+
 // import 'package:geocoding/geocoding.dart';
 import 'package:map/bloc/search/search_event.dart';
 import 'package:map/bloc/search/search_state.dart';
@@ -50,8 +51,13 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   Future<void> _executeSearch(
       Emitter<SearchState> emit, PlacePrediction placePrediction) async {
     emit(SearchLoading()); // Phát trạng thái đang tìm kiếm
-    Place place =
-        await _placeSearch.searchPlaceDetailById(placePrediction.placeId, await _location.getLocation());
-    emit(FinishSearchState(place)); // Phát trạng thái tìm kiếm thành công
+    try {
+      Place place = await _placeSearch.searchPlaceDetailById(placePrediction.placeId); // Tìm kiếm địa điểm
+      emit(FinishSearchState(place)); // Phát trạng thái tìm kiếm thành công
+      return;
+    } catch (e) {
+      emit(SearchFailure('Không thể tìm kiếm địa điểm'));
+      return;
+    }
   }
 }

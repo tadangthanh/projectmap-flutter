@@ -9,7 +9,6 @@ import 'package:map/entity/place.dart';
 
 import 'bloc/map/map_event.dart';
 import 'common_view/appbar_search.dart';
-import 'common_view/full_screen_image.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -51,6 +50,8 @@ class _MapScreenState extends State<MapScreen>
           return const Center(
             child: CircularProgressIndicator(),
           );
+        } else if (state is MapErrorState) {
+          _alertDialog(context, state);
         } else if (state is LoadedMapState) {
           return Scaffold(
             appBar: AppBar(
@@ -104,15 +105,16 @@ class _MapScreenState extends State<MapScreen>
                   markers: state.markers,
                   mapType: state.currentMapType,
                   polylines: state.directionInfo != null
-                      ? {state.directionInfo!.polyline} // Nếu directionInfo khác null, thêm polyline vào tập hợp
-                      : {}, // Nếu null, trả về tập hợp rỗng
+                      ? state.directionInfo!
+                          .polyline // Nếu directionInfo khác null, thêm polyline vào tập hợp
+                      : {},
+                  // Nếu null, trả về tập hợp rỗng
                   onMapCreated: (controller) {
                     BlocProvider.of<MapBloc>(context)
                         .add(LoadedMapControllerEvent(controller));
                   },
                   onCameraMove: (position) {
-                    BlocProvider.of<MapBloc>(context)
-                        .add(MapCameraMoveEvent());
+                    BlocProvider.of<MapBloc>(context).add(MapCameraMoveEvent());
                   },
                 ),
                 // Làm mờ bản đồ khi panel mở
@@ -197,87 +199,44 @@ class _MapScreenState extends State<MapScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Text(
-                        place.formattedAddress,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      Text('Khoảng cách: ${place.directionInfo.distance} - Thời gian: ${place.directionInfo.duration}',style: const TextStyle(color: Colors.black),),
-                      // Thêm nhiều widget khác vào đây
-                      const SizedBox(height: 20),
                       Row(
                         children: [
-                          ElevatedButton(
-                            style: ButtonStyle(
-                              backgroundColor: WidgetStateProperty.all(
-                                  Colors.blueAccent), // Màu nền nút
-                              foregroundColor: WidgetStateProperty.all(
-                                  Colors.blueAccent), // Màu văn bản và icon
+                          const Icon(Icons.location_on, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          // Khoảng cách giữa icon và text
+                          Expanded(
+                            // Sử dụng Expanded để text có thể xuống dòng
+                            child: Text(
+                              place.formattedAddress,
+                              maxLines: 2,
+                              // Giới hạn số dòng tối đa
+                              overflow: TextOverflow.ellipsis,
+                              // Hiển thị dấu "..." nếu text vượt quá maxLines
+                              style: const TextStyle(fontSize: 16),
                             ),
-                            onPressed: () {
+                          ),
+                        ],
+                      ),
+                      // Thêm nhiều widget khác vào đây
+                      const SizedBox(height: 20),
+                      state.directionInfo == null
+                          ? _direction(context, state, 'Đường đi',
+                              'assets/icons/direction.png', () {
+                              // Hành động khi nhấn nút chỉ đường
                               BlocProvider.of<MapBloc>(context).add(
                                   DirectionEvent(
                                       LatLng(state.locationData.latitude!,
                                           state.locationData.longitude!),
-                                      LatLng(place.latitude, place.longitude)));
-                              // Hành động khi nhấn nút
-                            },
-                            child: Row(
-                              children: [
-                                Image.asset(
-                                  'assets/icons/direction.png',
-                                  width: 20,
-                                  height: 20,
-                                  color: Colors.white, // Đặt màu icon là trắng
-                                ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  'Đường đi',
-                                  style: TextStyle(
-                                      color: Colors
-                                          .white), // Đặt màu text là trắng
-                                ),
-                              ],
-                            ),
-                          )
-                        ],
-                      ),
+                                      LatLng(place.latitude, place.longitude),
+                                      place));
+                            })
+                          : _direction(context, state, "Bắt đầu",
+                              'assets/icons/navigation.png', () {
+                              BlocProvider.of<MapBloc>(context).add(
+                                  StartTrackingDirectionEvent(
+                                      state.directionInfo!));
+                            }),
                       const SizedBox(height: 20),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Wrap(
-                          spacing: 8.0, // Khoảng cách ngang giữa các phần tử
-                          children: [
-                            for (var photo in place.photoReferences)
-                              Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.transparent),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => FullScreenImage(
-                                            imageUrl:
-                                                photo), // Chuyển đến màn hình ảnh lớn
-                                      ),
-                                    );
-                                  },
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(5),
-                                    // Thay đổi giá trị để điều chỉnh độ bo
-                                    child: Image.network(
-                                      photo,
-                                      width: MediaQuery.of(context).size.width / 3 - 16,
-                                      height: 200,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              )
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -307,6 +266,42 @@ class _MapScreenState extends State<MapScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _direction(
+      context, state, label, assetsUrlIcon, Function()? function) {
+    return Row(
+      children: [
+        ElevatedButton(
+          style: ButtonStyle(
+            backgroundColor:
+                WidgetStateProperty.all(Colors.blueAccent), // Màu nền nút
+            foregroundColor: WidgetStateProperty.all(
+                Colors.blueAccent), // Màu văn bản và icon
+          ),
+          onPressed: () {
+            function!();
+            // Hành động khi nhấn nút
+          },
+          child: Row(
+            children: [
+              Image.asset(
+                assetsUrlIcon,
+                width: 20,
+                height: 20,
+                color: Colors.white, // Đặt màu icon là trắng
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                    color: Colors.white), // Đặt màu text là trắng
+              ),
+            ],
+          ),
+        )
+      ],
     );
   }
 
@@ -561,6 +556,27 @@ class _MapScreenState extends State<MapScreen>
         function!();
       },
     );
+  }
+
+  Widget _alertDialog(context, state) {
+    return AlertDialog(
+      title: const Text('Thông báo'),
+      content: Text(state.message),
+      actions: [
+        TextButton(
+          onPressed: () {
+            BlocProvider.of<MapBloc>(context).add(InitMapEvent());
+          },
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _mapBloc.add(InitMapEvent());
   }
 
   @override

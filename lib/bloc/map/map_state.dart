@@ -20,3 +20,8 @@ class LoadedMapState extends MapState {
   LoadedMapState(this.locationData,this.markers,
       this.currentMapType,this.trafficEnabled,this.isFollowCamera,{this.googleMapController,this.place,this.directionInfo});
 }
+class MapErrorState extends MapState {
+  final String message;
+
+  MapErrorState(this.message);
+}

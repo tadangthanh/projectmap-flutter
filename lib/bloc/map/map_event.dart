@@ -1,4 +1,6 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
+import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 
 class MapEvent {}
@@ -29,7 +31,16 @@ class FoundLocationEvent extends MapEvent{
 }
 
 class DirectionEvent extends MapEvent{
-  final LatLng origin;
   final LatLng destination;
-  DirectionEvent(this.origin,this.destination);
+  final LatLng origin;
+  final Place place;
+  DirectionEvent(this.origin,this.destination,this.place);
+}
+class StartTrackingDirectionEvent extends MapEvent{
+  final DirectionInfo directionInfo;
+  StartTrackingDirectionEvent(this.directionInfo);
+}
+class LocationChangedEvent extends MapEvent {
+  final LocationData currentLocation;
+  LocationChangedEvent(this.currentLocation);
 }
