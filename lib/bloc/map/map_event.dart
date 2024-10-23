@@ -2,6 +2,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
+import 'package:map/entity/travel_mode_enum.dart';
 
 import '../../entity/place_type.dart';
 
@@ -54,6 +55,9 @@ class FindNearByTypeEvent extends MapEvent{
 }
 class MarkerTappedEvent extends MapEvent {
   final Place place;
-
   MarkerTappedEvent(this.place);
+}
+class ChangeTransportModeEvent extends MapEvent{
+  final VehicleType vehicleType;
+  ChangeTransportModeEvent(this.vehicleType);
 }

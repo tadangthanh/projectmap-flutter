@@ -1,4 +1,5 @@
 enum PlaceTypes {
+  none,
   accounting,
   airport,
   amusement_park,
