@@ -39,8 +39,11 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (state is SearchSuggestionsState) {
                     return TextField(
                       onSubmitted: (query) {
-                        BlocProvider.of<SearchBloc>(context)
-                            .add(ExecuteSearchEvent(placePrediction: state.suggestions.first));
+                        if(query.trim().isNotEmpty){
+                          BlocProvider.of<SearchBloc>(context)
+                              .add(ExecuteSearchEvent(
+                              placePrediction: state.suggestions.first));
+                        }
                       },
                       focusNode: searchFocusNode,
                       controller: controller,
@@ -63,9 +66,9 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ),
                     );
-                  }else if (state is FinishSearchState){
+                  } else if (state is FinishSearchState) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      Navigator.pop(context,state.place);
+                      Navigator.pop(context, state.place);
                     });
                   }
                   return const Text('Tìm kiếm địa điểm');
@@ -83,19 +86,21 @@ class _SearchScreenState extends State<SearchScreen> {
               }
               return _listLocationBuilder(
                   context, state.suggestions, Icons.search);
-            }else if(state is SearchLoading){
-              return const Center(child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                   SizedBox(height: 10,),
-                   Text('Đang tìm kiếm...'),
-                ],
-              ));
-            }else if(state is SearchFailure){
+            } else if (state is SearchLoading) {
+              return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Text('Đang tìm kiếm...'),
+                    ],
+                  ));
+            } else if (state is SearchFailure) {
               return _alertDialog(context, state.message);
-            }
-            else {
+            } else {
               return const Center(child: Text('Bắt đầu nhập để tìm kiếm.'));
             }
           },
@@ -103,6 +108,7 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
     );
   }
+
   Widget _alertDialog(BuildContext context, String message) {
     return AlertDialog(
       title: const Text('Thông báo'),
@@ -111,8 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
       actions: <Widget>[
         TextButton(
           onPressed: () {
-            BlocProvider.of<SearchBloc>(context)
-                .add(InitSearchEvent());
+            BlocProvider.of<SearchBloc>(context).add(InitSearchEvent());
             Navigator.of(context).pop(); // Đóng dialog
           },
           child: const Text('Đồng ý'),
@@ -120,7 +125,6 @@ class _SearchScreenState extends State<SearchScreen> {
       ],
     );
   }
-
 
   Widget _listLocationBuilder(context, locations, icon) {
     return ListView.separated(
@@ -134,18 +138,16 @@ class _SearchScreenState extends State<SearchScreen> {
       itemCount: locations.length,
       itemBuilder: (context, index) {
         final location = locations[index];
-        return BlocProvider(
-            create: (context) => searchBloc,
-            child: ListTile(
-              leading: Icon(icon),
-              title: Text(location.mainText),
-              subtitle: Text(location.secondaryText ?? ''),
-              onTap: () {
-                controller.text = location.mainText;
-                BlocProvider.of<SearchBloc>(context)
-                    .add(ExecuteSearchEvent(placePrediction: location));
-              },
-            ));
+        return ListTile(
+          leading: Icon(icon),
+          title: Text(location.mainText),
+          subtitle: Text(location.secondaryText ?? ''),
+          onTap: () {
+            controller.text = location.mainText;
+            BlocProvider.of<SearchBloc>(context)
+                .add(ExecuteSearchEvent(placePrediction: location));
+          },
+        );
       },
     );
   }

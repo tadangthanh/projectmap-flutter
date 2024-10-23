@@ -3,6 +3,8 @@ import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 
+import '../../entity/place_type.dart';
+
 class MapEvent {}
 class InitMapEvent extends MapEvent{}
 class LoadedMapControllerEvent extends MapEvent{
@@ -43,4 +45,15 @@ class StartTrackingDirectionEvent extends MapEvent{
 class LocationChangedEvent extends MapEvent {
   final LocationData currentLocation;
   LocationChangedEvent(this.currentLocation);
+}
+class CompleteDirectionEvent extends MapEvent{}
+class FindNearByTypeEvent extends MapEvent{
+  final PlaceTypes type;
+  final LocationData locationData;
+  FindNearByTypeEvent(this.type,this.locationData);
+}
+class MarkerTappedEvent extends MapEvent {
+  final Place place;
+
+  MarkerTappedEvent(this.place);
 }

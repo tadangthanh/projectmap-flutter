@@ -1,4 +1,6 @@
+import 'package:location/location.dart';
 import 'package:map/entity/place_prediction.dart';
+import 'package:map/entity/place_type.dart';
 
 class SearchEvent {}
 class InitSearchEvent extends SearchEvent {}

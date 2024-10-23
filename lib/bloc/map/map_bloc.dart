@@ -12,28 +12,36 @@ import 'package:map/main.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
 
+import '../../entity/place_type.dart';
+
 class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   late User _user;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
-  late Set<Marker> _markers;
+  late Set<Marker> _markerUsers;
+  late final Set<Marker> _markersPlace={};
   late Marker _placeSearchMarker = const Marker(markerId: MarkerId(''));
   late MapType _currentMapType = MapType.normal;
   final Location _location = Location();
   late bool _isFollowCamera = true;
   late double _angelView = 0;
   late double _zoom = 16.0;
+  late Place? _place = null;
   late bool _trafficEnabled = false;
   late bool _isTrackingDirection = false;
-  late DirectionInfo _directionInfo;
-  late BitmapDescriptor _customMarkerUser;
+  late DirectionInfo? _directionInfo = null; // Thông tin đường đi
+  late bool _isJourneyStarted = false;
+  late String _query = '';
+  late List<Place> _placesByNear = [];
+  late bool _isLoading = false;
 
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
       await _init(emit);
     });
+    // tim kiem dia diem
     on<FoundLocationEvent>((event, emit) async {
       await _foundLocationSearch(emit, event.place);
     });
@@ -55,79 +63,156 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     // bat dau theo doi duong di
     on<StartTrackingDirectionEvent>((event, emit) async {
-      _isTrackingDirection = true;
-      _angelView = 45;
-      _isFollowCamera = true;
-      _zoom = 20.0;
-      emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-          _trafficEnabled, _isFollowCamera,
-          googleMapController: _googleMapController,
-          directionInfo: event.directionInfo));
+      await _startTrackingDirection(event.directionInfo, emit);
     });
+    // thay đổi kiểu map : bản đồ, vệ tinh, vệ tinh kết hợp /..
     on<ChangeMapDetailEvent>((event, emit) async {
-      _trafficEnabled = event.trafficEnabled;
-      emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-          _trafficEnabled, _isFollowCamera,
-          googleMapController: _googleMapController));
+      await _changeMapDetail(emit,event.trafficEnabled);
     });
     on<ChangeMapTypeEvent>((event, emit) async {
-      _currentMapType = event.mapType;
-      emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-          _trafficEnabled, _isFollowCamera,
-          googleMapController: _googleMapController));
+        await _changeMapType(emit, event.mapType);
     });
     on<LocationChangedEvent>((event, emit) async {
-      await _updateLocation(event.currentLocation);
-      emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-          _trafficEnabled, _isFollowCamera,
-          googleMapController: _googleMapController,
-          directionInfo: _directionInfo));
+      await _updateLocation(emit, event.currentLocation);
+    });
+  // tìm kiếm địa điểm lân cận theo loại: nhà hàng, quán cafe, trường học, bệnh viện,..
+    on<FindNearByTypeEvent>((event, emit) async {
+       await _findByNearByType(event.type, event.locationData, emit);
+    });
+    // khi click vào marker place
+    on<MarkerTappedEvent>((event, emit) async {
+     await _markerTapped(emit,event.place);
+    });
+    // khi kết thúc chỉ đường xóa tất cả marker
+    on<CompleteDirectionEvent>((event, emit) async {
+     await _removeAllPlaceMarkers(emit);
     });
     add(InitMapEvent());
   }
+  Future<void> _markerTapped(Emitter<MapState> emit,Place place) async {
+    _place=place;
+    _emitLoadedMapState(emit);
+  }
+  Future<void> _updateLocation(Emitter<MapState> emit, LocationData locationData) async{
+    await _updateUserLocation(locationData);
+    _emitLoadedMapState(emit);
+  }
+  Future<void> _changeMapType(Emitter<MapState> emit,MapType mapType) async {
+    _currentMapType = mapType;
+   _emitLoadedMapState(emit);
+  }
+  Future<void> _changeMapDetail(Emitter<MapState> emit,bool trafficEnabled) async {
+    _trafficEnabled =trafficEnabled;
+    _emitLoadedMapState(emit);
+  }
+  Future<void> _removeAllPlaceMarkers(Emitter<MapState>emit) async {
+    _isTrackingDirection = false;
+    _place = null;
+    _directionInfo = null;
+    _isJourneyStarted = false;
+    _query = '';
+    // Xóa marker tìm kiếm
+    _markersPlace.clear();
+    _placesByNear.clear();
+    emit(LoadedMapState(_currentPosition, _markerUsers, _currentMapType,
+        _trafficEnabled, _isFollowCamera,
+        googleMapController: _googleMapController,query: ''));
+  }
 
+
+
+  Future<void>_findByNearByType(PlaceTypes type,LocationData locationData,Emitter<MapState> emit) async{
+    _isLoading = true;
+    _emitLoadedMapState(emit);
+    final places = await _placeSearch.searchByNearByType(locationData, type, 5000);
+    _placesByNear = places;
+    _query = "Tìm thấy ${places.length} địa điểm";
+    _markersPlace.clear();
+    for (var element in places) {
+      _markersPlace.add(Marker(
+        onTap: () {
+          add(MarkerTappedEvent(element));
+        },
+        markerId: MarkerId(element.placeId),
+        position: LatLng(element.latitude, element.longitude),
+        infoWindow: InfoWindow(title: element.name),
+        icon: BitmapDescriptor.defaultMarker,
+      ));
+    }
+    _animateMapCamera(target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!), zoom: 13 );
+    _isLoading = false;
+    _emitLoadedMapState(emit);
+  }
+
+  Future<void> _startTrackingDirection(
+      DirectionInfo directionInfo, Emitter<MapState> emit) async {
+    _emitLoadedMapState(emit);
+    _isTrackingDirection = true;
+    _angelView = 45;
+    _isFollowCamera = true;
+    _zoom = 14.0;
+    _isJourneyStarted = true;
+    double bearing = _currentPosition.heading ?? 0;
+    _animateMapCamera(target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),zoom: _zoom,heading: bearing,angelView: _angelView);
+    _emitLoadedMapState(emit);
+  }
+  Future<void> _animateMapCamera({required LatLng target,required double zoom,double? heading,double? angelView}) async {
+    await _googleMapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: target,
+          zoom: zoom,
+          tilt: angelView??0,
+          bearing: heading??0
+        ),
+      ),
+    );
+  }
+  void _emitLoadedMapState(Emitter<MapState> emit){
+    Set<Marker> markers = {};
+    markers.addAll(_markerUsers);
+    markers.addAll(_markersPlace);
+      emit(LoadedMapState(_currentPosition, markers, _currentMapType,
+          _trafficEnabled, _isFollowCamera,
+          googleMapController: _googleMapController,
+          query: _query,
+          isLoading: _isLoading,
+          isJourneyStarted: _isJourneyStarted,
+          directionInfo: _directionInfo,
+          place: _place
+      ));
+  }
   Future<void> _direction(Emitter<MapState> emit, LatLng origin,
       LatLng destination, Place place) async {
+    _isLoading = true;
+    _emitLoadedMapState(emit);
     // Tạo đường đi giữa 2 điểm
-    // ignore: unused_local_variable
     try {
       DirectionInfo directionInfo =
           await _placeSearch.getPolylinePoints(origin, destination);
       _directionInfo = directionInfo;
-      emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-          _trafficEnabled, _isFollowCamera,
-          googleMapController: _googleMapController,
-          directionInfo: directionInfo,
-          place: place));
+      _isLoading = false;
+     _emitLoadedMapState(emit);
       return;
     } catch (e) {
-      emit(MapErrorState(e.toString()));
+      emit(MapErrorState("Không thể lấy thông tin chỉ đường: ${e.toString()}"));
     }
   }
 
   // tìm thấy địa điểm và di chuyển camera tới địa điểm đó
   Future<void> _foundLocationSearch(Emitter<MapState> emit, Place place) async {
-    _markers.removeWhere((element) =>
-        element.markerId.value == _placeSearchMarker.markerId.value);
+    _markersPlace.clear();
     _placeSearchMarker = Marker(
       markerId: MarkerId(place.placeId),
       position: LatLng(place.latitude, place.longitude),
       infoWindow: InfoWindow(title: place.name),
       icon: BitmapDescriptor.defaultMarker,
     );
-    _markers.add(_placeSearchMarker);
-    await _googleMapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(place.latitude, place.longitude),
-          zoom: 14.0,
-          tilt: 0,
-        ),
-      ),
-    );
-    emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
-        _trafficEnabled, _isFollowCamera,
-        googleMapController: _googleMapController, place: place));
+    _markersPlace.add(_placeSearchMarker);
+    _query = place.name;
+    _place=place;
+    _animateMapCamera(target: LatLng(place.latitude, place.longitude),zoom: 14.0);
+    _emitLoadedMapState(emit);
   }
 
   //khi controller của map load thì gán lại controller cho biến _googleMapController
@@ -136,31 +221,20 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _googleMapController = event.googleMapController;
     _location.onLocationChanged.listen((LocationData currentLocation) {
       // Cập nhật vị trí khi có sự thay đổi
-      //  _updateLocation(currentLocation);
       add(LocationChangedEvent(currentLocation));
     });
-    emit(LoadedMapState(_currentPosition, _markers, _currentMapType,
+    emit(LoadedMapState(_currentPosition, _markerUsers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
         googleMapController: _googleMapController));
   }
 
-  Future<void> _updateLocation(LocationData currentLocation) async {
+  Future<void> _updateUserLocation(LocationData currentLocation) async {
     _currentPosition = currentLocation; // Cập nhật vị trí hiện tại
     //hướng của người dùng
     double? bearing = currentLocation.heading;
     // Điều hướng camera tới vị trí mới
     if (_isFollowCamera && _isTrackingDirection) {
-      _googleMapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target:
-                LatLng(currentLocation.latitude!, currentLocation.longitude!),
-            zoom: _zoom,
-            tilt: _angelView,
-            bearing: bearing ?? 0,
-          ),
-        ),
-      );
+      _animateMapCamera(target: LatLng(currentLocation.latitude!, currentLocation.longitude!),zoom: _zoom,heading: bearing,angelView: _angelView);
     }
   }
 
@@ -179,7 +253,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       return;
     }
     Set<Marker> markers = await _initMarker(user, currentLocation);
-    _markers = markers;
+    _markerUsers = markers;
     _user = user;
     _currentPosition = currentLocation;
     _trafficEnabled = false;
@@ -193,7 +267,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<Set<Marker>> _initMarker(user, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
-    _customMarkerUser = await _convertAvatarUrlToBitMapDescriptor(user);
     return {
       Marker(
         markerId: const MarkerId('HoangSa'),
@@ -237,22 +310,15 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   Future<void> _getCurrentLocation(Emitter<MapState> emit) async {
-    // neu _isFollowCamera = false thi zoom = 16.0, nguoc lai thi zoom = 19.0
-    _zoom = _zoom == 16.0 ? 19.0 : 16.0;
-    double? bearing = _currentPosition.heading;
-    _googleMapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target:
-              LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-          zoom: _zoom,
-          tilt: _angelView == 0 ? 45 : 0,
-          bearing: bearing ?? 0,
-        ),
-      ),
-    );
-    // neu follow camera thi _angelView = 0, nguoc lai thi _angelView = 45
-    _angelView == 0 ? _angelView = 45 : _angelView = 0;
+    if (_isTrackingDirection) {
+      _zoom = _zoom == 19.0 ? 14.0 : 19.0;
+      _angelView = _zoom == 19.0 ? 45 : 0;
+    } else {
+      _zoom = _zoom == 16.0 ? 19.0 : 16.0;
+      _angelView = _angelView == 0 ? 45 : 0;
+    }
+    final bearing = _currentPosition.heading ?? 0;
+    _animateMapCamera(target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!), zoom: _zoom,heading: bearing,angelView: _angelView);
     _isFollowCamera = true;
   }
 
@@ -282,4 +348,5 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         ),
         urlAsset);
   }
+
 }

@@ -23,7 +23,6 @@ class Place {
     final formattedAddress = json['result']['formatted_address'] ?? '';
     final latitude = json['result']['geometry']['location']['lat'] ?? 0.0;
     final longitude = json['result']['geometry']['location']['lng'] ?? 0.0;
-
     return Place(
       placeId: placeId,
       name: name,
@@ -32,7 +31,21 @@ class Place {
       longitude: longitude
     );
   }
-
+  factory Place.fromJsonList(Map<String, dynamic> json) {
+    // Lấy tên, kinh độ và vĩ độ
+    final placeId=json['place_id']??'';
+    final name = json['name'] ?? '';
+    final formattedAddress = json['formatted_address'] ?? '';
+    final latitude = json['geometry']['location']['lat'] ?? 0.0;
+    final longitude = json['geometry']['location']['lng'] ?? 0.0;
+    return Place(
+        placeId: placeId,
+        name: name,
+        formattedAddress: formattedAddress,
+        latitude: latitude,
+        longitude: longitude
+    );
+  }
   @override
   String toString() {
     return 'Place{name: $name, latitude: $latitude, longitude: $longitude';

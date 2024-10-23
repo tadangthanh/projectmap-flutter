@@ -16,9 +16,12 @@ class LoadedMapState extends MapState {
   final Place? place;
   final GoogleMapController? googleMapController;
   final DirectionInfo? directionInfo;
-
+  final bool isLoading;
+  final bool isJourneyStarted;
+  final String query;
   LoadedMapState(this.locationData,this.markers,
-      this.currentMapType,this.trafficEnabled,this.isFollowCamera,{this.googleMapController,this.place,this.directionInfo});
+
+      this.currentMapType,this.trafficEnabled,this.isFollowCamera,{this.googleMapController,this.place,this.directionInfo,this.isLoading=false,this.isJourneyStarted=false,this.query=''});
 }
 class MapErrorState extends MapState {
   final String message;

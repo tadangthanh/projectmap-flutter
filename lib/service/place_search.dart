@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
+import 'package:map/entity/place_type.dart';
 import 'package:map/entity/route_response.dart';
 import 'package:map/entity/travel_mode_enum.dart';
 
@@ -52,6 +53,24 @@ class PlaceSearch {
     return place; // Trả về đối tượng Place
   }
 
+  Future<List<Place>> searchByNearByType(
+      LocationData locationData, PlaceTypes type, int radius) async {
+    // Chuyển đổi enum sang dạng String
+    final String typeString = type.toString().split('.').last;
+    final String url =
+        'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${locationData.latitude},${locationData.longitude}&radius=$radius&type=$typeString&key=$apiKey&language=vi&region=VN&fields=formatted_address,geometry,name';
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> jsonResponse = json.decode(response.body);
+
+      List<Place> places = (jsonResponse['results'] as List)
+          .map((placeJson) => Place.fromJsonList(placeJson))
+          .toList();
+      return places;
+    } else {
+      throw Exception('Failed to fetch nearby places');
+    }
+  }
 
 
 
@@ -59,6 +78,13 @@ class PlaceSearch {
       {VehicleType mode = VehicleType.TWO_WHEELER}) async {
     PolylinePoints polylinePoints = PolylinePoints();
     Set<Polyline> polylines = {};
+    // Danh sách các màu
+    List<Color> colors = [
+      Colors.blue,
+      Colors.orangeAccent,
+      Colors.grey,
+      Colors.deepOrangeAccent,
+    ];
     final Uri url =
     Uri.parse("https://routes.googleapis.com/directions/v2:computeRoutes");
 
@@ -109,7 +135,7 @@ class PlaceSearch {
 
       List<String> distances = [];
       List<String> durations = [];
-
+      int index=0;
       for (var result in routeResponses) {
         List<LatLng> polylineCoordinates = [];  // Tạo mới mỗi khi tạo một tuyến mới
         List<PointLatLng> avl =
@@ -125,8 +151,8 @@ class PlaceSearch {
         Polyline polyline = Polyline(
           polylineId: PolylineId('route${result.duration}'),
           points: polylineCoordinates,
-          color: Colors.blue,
-          width: 5,
+          color: colors[index++],
+          width: 10,
         );
         polylines.add(polyline);
 
