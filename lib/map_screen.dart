@@ -156,7 +156,45 @@ class _MapScreenState extends State<MapScreen>
                           icon: Icons.build,
                           label: 'Trạm sửa xe',
                           onPressed: () {
-                            // BlocProvider.of<MapBloc>(context).add(FindRepairStationEvent());
+                            BlocProvider.of<MapBloc>(context).add(
+                                FindNearByTypeEvent(PlaceTypes.car_repair,
+                                    state.locationData));
+                          },
+                        ),
+                        _customButton(
+                          icon: Icons.local_grocery_store,
+                          label: 'Tạp hóa',
+                          onPressed: () {
+                            BlocProvider.of<MapBloc>(context).add(
+                                FindNearByTypeEvent(PlaceTypes.supermarket,
+                                    state.locationData));
+                          },
+                        ),
+                        _customButton(
+                          icon: Icons.local_police,
+                          label: 'Cảnh sát',
+                          onPressed: () {
+                            BlocProvider.of<MapBloc>(context).add(
+                                FindNearByTypeEvent(PlaceTypes.police,
+                                    state.locationData));
+                          },
+                        ),
+                        _customButton(
+                          icon: Icons.local_hospital,
+                          label: 'Dịch vụ y tế',
+                          onPressed: () {
+                            BlocProvider.of<MapBloc>(context).add(
+                                FindNearByTypeEvent(PlaceTypes.hospital,
+                                    state.locationData));
+                          },
+                        ),
+                        _customButton(
+                          icon: Icons.directions_bus,
+                          label: 'Bus',
+                          onPressed: () {
+                            BlocProvider.of<MapBloc>(context).add(
+                                FindNearByTypeEvent(PlaceTypes.bus_station,
+                                    state.locationData));
                           },
                         ),
                       ],

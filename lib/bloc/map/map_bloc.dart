@@ -127,6 +127,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     final places = await _placeSearch.searchByNearByType(locationData, type, 5000);
     _placesByNear = places;
     _query = "Tìm thấy ${places.length} địa điểm";
+    _place=null;
     _markersPlace.clear();
     for (var element in places) {
       _markersPlace.add(Marker(
