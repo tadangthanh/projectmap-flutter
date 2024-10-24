@@ -59,46 +59,12 @@ class _MapScreenState extends State<MapScreen>
           _alertDialog(context, state);
         } else if (state is LoadedMapState) {
           return Scaffold(
-            appBar: AppBar(
-              title: TextField(
-                readOnly: true,
-                decoration: InputDecoration(
-                  hintText: state.query.trim().isNotEmpty
-                      ? state.query
-                      : 'Tìm kiếm địa điểm',
-                  border: InputBorder.none,
-                ),
-                onTap: () async {
-                  BlocProvider.of<MapBloc>(context)
-                      .add(CompleteDirectionEvent());
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SearchScreen(),
-                    ),
-                  );
-                  if (result != null) {
-                    final place = result as Place;
-                    BlocProvider.of<MapBloc>(context)
-                        .add(FoundLocationEvent(place));
-                  }
-                },
-              ),
-              leading: IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () {
-                  // Navigator.pop(context);
-                },
-              ),
-              actions: _actions(context),
-            ),
+            appBar: _buildAppBar(context, state),
             body: Stack(
               children: [
                 // Bản đồ
                 GoogleMap(
-                  onTap: (latLng) {
-
-                  },
+                  onTap: (latLng) {},
                   mapToolbarEnabled: false,
                   buildingsEnabled: true,
                   trafficEnabled: state.trafficEnabled,
@@ -125,6 +91,14 @@ class _MapScreenState extends State<MapScreen>
                     BlocProvider.of<MapBloc>(context).add(MapCameraMoveEvent());
                   },
                 ),
+                // Icon location ở giữa màn hình
+                state.isEnabledSelectLocation?Center(
+                  child: Image.asset(
+                    'assets/icons/location-select.png',
+                    width: 30,
+                    height: 30,
+                  ),
+                ):const SizedBox(),
                 // Hiển thị loading khi đang tải đường đi
                 if (state.isLoading)
                   Positioned.fill(
@@ -135,75 +109,92 @@ class _MapScreenState extends State<MapScreen>
                       ),
                     ),
                   ),
-                !state.isJourneyStarted?Positioned(
-                    child:
-                    // Nút tìm kiếm trạm xăng
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            // tìm trạm xăng gần nhất
-                            _customButton(
-                              icon: Icons.local_gas_station,
-                              label: 'Trạm xăng',
-                              onPressed: () {
-                                BlocProvider.of<MapBloc>(context).add(
-                                    FindNearByTypeEvent(PlaceTypes.gas_station,
-                                        state.locationData));
-                              },isSelected: state.searchByNearSelectedType == PlaceTypes.gas_station,
-                            ),
-                            // tìm trạm sửa xe gần nhất\
-                            _customButton(
-                              icon: Icons.build,
-                              label: 'Trạm sửa xe',
-                              onPressed: () {
-                                BlocProvider.of<MapBloc>(context).add(
-                                    FindNearByTypeEvent(PlaceTypes.car_repair,
-                                        state.locationData));
-                              },isSelected: state.searchByNearSelectedType == PlaceTypes.car_repair,
-                            ),
-                            _customButton(
-                              icon: Icons.local_grocery_store,
-                              label: 'Tạp hóa',
-                              onPressed: () {
-                                BlocProvider.of<MapBloc>(context).add(
-                                    FindNearByTypeEvent(PlaceTypes.supermarket,
-                                        state.locationData));
-                              },isSelected: state.searchByNearSelectedType == PlaceTypes.supermarket,
-                            ),
-                            _customButton(
-                              icon: Icons.local_police,
-                              label: 'Cảnh sát',
-                              onPressed: () {
-                                BlocProvider.of<MapBloc>(context).add(
-                                    FindNearByTypeEvent(PlaceTypes.police,
-                                        state.locationData));
-                              },isSelected: state.searchByNearSelectedType == PlaceTypes.police,
-                            ),
-                            _customButton(
-                              icon: Icons.local_hospital,
-                              label: 'Dịch vụ y tế',
-                              onPressed: () {
-                                BlocProvider.of<MapBloc>(context).add(
-                                    FindNearByTypeEvent(PlaceTypes.hospital,
-                                        state.locationData));
-                              }, isSelected: state.searchByNearSelectedType == PlaceTypes.hospital,
-                            ),
-                            _customButton(
-                              icon: Icons.directions_bus,
-                              label: 'Bus',
-                              onPressed: () {
-                                BlocProvider.of<MapBloc>(context).add(
-                                    FindNearByTypeEvent(PlaceTypes.bus_station,
-                                        state.locationData));
-                              },isSelected: state.searchByNearSelectedType == PlaceTypes.bus_station,
-                            ),
-                          ],
+                !state.isJourneyStarted && !state.isEnabledSelectLocation
+                    ? Positioned(
+                        child:
+                            // Nút tìm kiếm trạm xăng
+                            Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              // tìm trạm xăng gần nhất
+                              _customButton(
+                                icon: Icons.local_gas_station,
+                                label: 'Trạm xăng',
+                                onPressed: () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      FindNearByTypeEvent(
+                                          PlaceTypes.gas_station,
+                                          state.locationData));
+                                },
+                                isSelected: state.searchByNearSelectedType ==
+                                    PlaceTypes.gas_station,
+                              ),
+                              // tìm trạm sửa xe gần nhất\
+                              _customButton(
+                                icon: Icons.build,
+                                label: 'Trạm sửa xe',
+                                onPressed: () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      FindNearByTypeEvent(PlaceTypes.car_repair,
+                                          state.locationData));
+                                },
+                                isSelected: state.searchByNearSelectedType ==
+                                    PlaceTypes.car_repair,
+                              ),
+                              _customButton(
+                                icon: Icons.local_grocery_store,
+                                label: 'Tạp hóa',
+                                onPressed: () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      FindNearByTypeEvent(
+                                          PlaceTypes.supermarket,
+                                          state.locationData));
+                                },
+                                isSelected: state.searchByNearSelectedType ==
+                                    PlaceTypes.supermarket,
+                              ),
+                              _customButton(
+                                icon: Icons.local_police,
+                                label: 'Cảnh sát',
+                                onPressed: () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      FindNearByTypeEvent(PlaceTypes.police,
+                                          state.locationData));
+                                },
+                                isSelected: state.searchByNearSelectedType ==
+                                    PlaceTypes.police,
+                              ),
+                              _customButton(
+                                icon: Icons.local_hospital,
+                                label: 'Dịch vụ y tế',
+                                onPressed: () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      FindNearByTypeEvent(PlaceTypes.hospital,
+                                          state.locationData));
+                                },
+                                isSelected: state.searchByNearSelectedType ==
+                                    PlaceTypes.hospital,
+                              ),
+                              _customButton(
+                                icon: Icons.directions_bus,
+                                label: 'Bus',
+                                onPressed: () {
+                                  BlocProvider.of<MapBloc>(context).add(
+                                      FindNearByTypeEvent(
+                                          PlaceTypes.bus_station,
+                                          state.locationData));
+                                },
+                                isSelected: state.searchByNearSelectedType ==
+                                    PlaceTypes.bus_station,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    )):const SizedBox(),
+                      ))
+                    : const SizedBox(),
                 // Làm mờ bản đồ khi panel mở
                 if (_isPanelOpen)
                   Positioned.fill(
@@ -228,13 +219,21 @@ class _MapScreenState extends State<MapScreen>
                 Positioned(
                   top: 100,
                   right: 26,
-                  child: _typeMapButton(),
+                  child: !state.isEnabledSelectLocation
+                      ? _typeMapButton()
+                      : const SizedBox(),
                 ),
                 // icon định vị vị trí hiện tại
                 Positioned(
-                  bottom: 150,
+                  bottom: 100,
                   right: 25,
-                  child: _floatingActionButtons(context),
+                  child: _floatingActionButtons(context, state),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  left: 0,
+                  child: _buttonOkBottom(context, state),
                 ),
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 150),
@@ -245,7 +244,8 @@ class _MapScreenState extends State<MapScreen>
                   right: 0,
                   child: _mapMenu(context, state),
                 ),
-                state.query.isNotEmpty && state.place != null
+                // state.query.isNotEmpty &&
+                    state.place != null
                     ? _draggableWidget(context, state)
                     : const SizedBox(),
               ],
@@ -272,10 +272,10 @@ class _MapScreenState extends State<MapScreen>
       decoration: BoxDecoration(
         gradient: isSelected
             ? LinearGradient(
-          colors: [Colors.blueAccent.shade100, Colors.blue.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        )
+                colors: [Colors.blueAccent.shade100, Colors.blue.shade400],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
             : null,
         color: isSelected ? null : buttonColor,
         borderRadius: BorderRadius.circular(borderRadius),
@@ -292,10 +292,12 @@ class _MapScreenState extends State<MapScreen>
           // Nút chính
           TextButton(
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16), // Tăng kích thước padding để nút lớn hơn
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              // Tăng kích thước padding để nút lớn hơn
               backgroundColor: isSelected ? Colors.transparent : buttonColor,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(borderRadius), // Bo tròn góc
+                borderRadius:
+                    BorderRadius.circular(borderRadius), // Bo tròn góc
               ),
             ),
             onPressed: onPressed, // Hành động khi click
@@ -306,15 +308,21 @@ class _MapScreenState extends State<MapScreen>
                 Icon(
                   icon,
                   size: 20, // Tăng kích thước icon cho rõ nét hơn
-                  color: isSelected ? Colors.white : iconColor, // Thay đổi màu icon khi được chọn
+                  color: isSelected
+                      ? Colors.white
+                      : iconColor, // Thay đổi màu icon khi được chọn
                 ),
                 const SizedBox(width: 8), // Khoảng cách giữa icon và text
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13, // Tăng kích thước font để dễ đọc hơn
-                    fontWeight: FontWeight.bold, // Đặt độ dày cho chữ để tạo cảm giác chắc chắn
-                    color: isSelected ? Colors.white : textColor, // Thay đổi màu chữ khi được chọn
+                    fontSize: 13,
+                    // Tăng kích thước font để dễ đọc hơn
+                    fontWeight: FontWeight.bold,
+                    // Đặt độ dày cho chữ để tạo cảm giác chắc chắn
+                    color: isSelected
+                        ? Colors.white
+                        : textColor, // Thay đổi màu chữ khi được chọn
                   ),
                 ),
               ],
@@ -338,10 +346,6 @@ class _MapScreenState extends State<MapScreen>
       ),
     );
   }
-
-
-
-
 
   Widget _draggableWidget(context, state) {
     Place place = state.place;
@@ -399,17 +403,17 @@ class _MapScreenState extends State<MapScreen>
           // Địa chỉ của địa điểm
           place.formattedAddress.trim().isNotEmpty
               ? Row(
-            children: [
-              const Icon(Icons.location_on, color: Colors.blue),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  place.formattedAddress,
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ],
-          )
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        place.formattedAddress,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
+                )
               : const SizedBox(),
           const SizedBox(height: 20),
           _buildVehicleTypeIconFromState(state.vehicleType),
@@ -421,20 +425,22 @@ class _MapScreenState extends State<MapScreen>
       ),
     );
   }
-Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
+
+  Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
     switch (vehicleType) {
       case VehicleType.DRIVE:
-        return Icon(Icons.directions_car, color: Colors.blue);
+        return const Icon(Icons.directions_car, color: Colors.blue);
       case VehicleType.TWO_WHEELER:
-        return Icon(Icons.two_wheeler, color: Colors.blue);
+        return const Icon(Icons.two_wheeler, color: Colors.blue);
       case VehicleType.WALK:
-        return Icon(Icons.directions_walk, color: Colors.blue);
+        return const Icon(Icons.directions_walk, color: Colors.blue);
       case VehicleType.BICYCLE:
-        return Icon(Icons.location_on_outlined, color: Colors.blue);
+        return const Icon(Icons.location_on_outlined, color: Colors.blue);
       case VehicleType.TRANSIT:
-        return Icon(Icons.location_on_outlined, color: Colors.blue);
+        return const Icon(Icons.location_on_outlined, color: Colors.blue);
     }
   }
+
   // Widget for route selection buttons (car, bike, etc.)
   Widget _buildRouteSelectionButtons(BuildContext context, state) {
     return Container(
@@ -448,25 +454,28 @@ Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
             _transportOption(
               icon: Icons.directions_car,
               label: 'Ô tô',
-              isSelected: state.vehicleType==VehicleType.DRIVE,
+              isSelected: state.vehicleType == VehicleType.DRIVE,
               onTap: () {
-                BlocProvider.of<MapBloc>(context).add(ChangeTransportModeEvent(VehicleType.DRIVE));
+                BlocProvider.of<MapBloc>(context)
+                    .add(ChangeTransportModeEvent(VehicleType.DRIVE));
               },
             ),
             _transportOption(
               icon: Icons.two_wheeler,
               label: 'Xe máy',
-              isSelected: state.vehicleType==VehicleType.TWO_WHEELER,
+              isSelected: state.vehicleType == VehicleType.TWO_WHEELER,
               onTap: () {
-                BlocProvider.of<MapBloc>(context).add(ChangeTransportModeEvent(VehicleType.TWO_WHEELER));
+                BlocProvider.of<MapBloc>(context)
+                    .add(ChangeTransportModeEvent(VehicleType.TWO_WHEELER));
               },
             ),
             _transportOption(
               icon: Icons.directions_walk,
               label: 'Đi bộ',
-              isSelected: state.vehicleType==VehicleType.WALK,
+              isSelected: state.vehicleType == VehicleType.WALK,
               onTap: () {
-                BlocProvider.of<MapBloc>(context).add(ChangeTransportModeEvent(VehicleType.WALK));
+                BlocProvider.of<MapBloc>(context)
+                    .add(ChangeTransportModeEvent(VehicleType.WALK));
               },
             ),
             const SizedBox(width: 10), // Add padding after the last button
@@ -485,7 +494,8 @@ Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8), // Space between buttons
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        // Space between buttons
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected ? Colors.blueAccent : Colors.white,
@@ -506,13 +516,15 @@ Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(child: Icon(
+            Expanded(
+                child: Icon(
               icon,
               color: isSelected ? Colors.white : Colors.black,
               size: 20,
             )),
             const SizedBox(height: 10),
-            Expanded(child: Text(
+            Expanded(
+                child: Text(
               label,
               style: TextStyle(
                 color: isSelected ? Colors.white : Colors.black,
@@ -525,8 +537,6 @@ Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
       ),
     );
   }
-
-
 
   Widget _buildDragHandle() {
     return Container(
@@ -784,11 +794,26 @@ Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
     );
   }
 
-
-  Widget _floatingActionButtons(context) {
+  Widget _floatingActionButtons(context, state) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        !state.isEnabledSelectLocation && !state.isJourneyStarted
+            ? FloatingActionButton(
+                onPressed: () {
+                  BlocProvider.of<MapBloc>(context)
+                      .add(SelectLocationEvent(true));
+                },
+                backgroundColor: Colors.white,
+                child: Image.asset(
+                  'assets/icons/add-location.png',
+                  color: Colors.blue,
+                  width: 30,
+                  height: 30,
+                ),
+              )
+            : const SizedBox(),
+        const SizedBox(height: 10),
         FloatingActionButton(
           heroTag: 'location',
           backgroundColor: Colors.white,
@@ -961,6 +986,95 @@ Widget _buildVehicleTypeIconFromState(VehicleType vehicleType) {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _mapBloc.add(InitMapEvent());
+  }
+
+  PreferredSizeWidget? _buildAppBar(context, state) {
+    if (state.isEnabledSelectLocation) {
+      return AppBar(
+        title: const Text('Chọn vị trí'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            BlocProvider.of<MapBloc>(context).add(SelectLocationEvent(false));
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // BlocProvider.of<MapBloc>(context).add(CompleteSelectLocationEvent());
+            },
+          ),
+        ],
+      );
+    }
+    return AppBar(
+      title: TextField(
+        readOnly: true,
+        decoration: InputDecoration(
+          hintText:
+              state.query.trim().isNotEmpty ? state.query : 'Tìm kiếm địa điểm',
+          border: InputBorder.none,
+        ),
+        onTap: () async {
+          BlocProvider.of<MapBloc>(context).add(CompleteDirectionEvent());
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SearchScreen(),
+            ),
+          );
+          if (result != null) {
+            final place = result as Place;
+            BlocProvider.of<MapBloc>(context).add(FoundLocationEvent(place));
+          }
+        },
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.menu),
+        onPressed: () {
+          // Navigator.pop(context);
+        },
+      ),
+      actions: _actions(context),
+    );
+  }
+
+  Widget _buttonOkBottom(BuildContext context, state) {
+    return Visibility(
+      visible: state.isEnabledSelectLocation, // Điều kiện để hiển thị nút
+      child: TextButton(
+        onPressed: () async {
+          // Xử lý khi bấm nút OKaw
+          LatLng result= await _getCenterLocation(state);
+          if (mounted) {
+            // Sử dụng BuildContext nếu widget còn tồn tại
+            BlocProvider.of<MapBloc>(context).add(SelectedLocationEvent(result));
+          }
+        },
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero, // Loại bỏ bo góc
+          ),
+        ),
+        child: const Text(
+          'OK',
+          style: TextStyle(color: Colors.blue), // Màu chữ
+        ),
+      ),
+    );
+  }
+
+  // Lấy tọa độ trung tâm"
+  Future<LatLng> _getCenterLocation(state) async {
+    LatLngBounds visibleRegion = await state.googleMapController.getVisibleRegion();
+    LatLng centerLatLng = LatLng(
+      (visibleRegion.northeast.latitude + visibleRegion.southwest.latitude) / 2,
+      (visibleRegion.northeast.longitude + visibleRegion.southwest.longitude) / 2,
+    );
+    return centerLatLng;
   }
 
   @override

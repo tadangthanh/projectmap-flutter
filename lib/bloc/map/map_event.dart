@@ -61,3 +61,11 @@ class ChangeTransportModeEvent extends MapEvent{
   final VehicleType vehicleType;
   ChangeTransportModeEvent(this.vehicleType);
 }
+class SelectLocationEvent extends MapEvent{
+  final bool isEnabledSelectLocation;
+  SelectLocationEvent(this.isEnabledSelectLocation);
+}
+class SelectedLocationEvent extends MapEvent{
+  final LatLng location;
+  SelectedLocationEvent(this.location);
+}

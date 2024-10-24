@@ -39,6 +39,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late bool _isLoading = false;
   late PlaceTypes _searchByNearSelectedType = PlaceTypes.none;
   late VehicleType _vehicleType = VehicleType.TWO_WHEELER;
+  late bool _isEnabledSelectLocation = false;
 
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
@@ -62,7 +63,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     // chỉ đường
     on<DirectionEvent>((event, emit) async {
-      await _direction(emit, event.origin, event.destination, event.place,VehicleType.TWO_WHEELER);
+      await _direction(emit, event.origin, event.destination, event.place,
+          VehicleType.TWO_WHEELER);
     });
     // bat dau theo doi duong di
     on<StartTrackingDirectionEvent>((event, emit) async {
@@ -96,15 +98,67 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     on<ChangeTransportModeEvent>((event, emit) async {
       await _changeTransportMode(emit, event.vehicleType);
     });
+    //chon dia diem tren ban do
+    on<SelectLocationEvent>((event, emit) async {
+      await _enableSelectLocation(emit, event.isEnabledSelectLocation);
+    });
+    // sau khi da chon dia diem tren ban do
+    on<SelectedLocationEvent>((event, emit) async {
+      await _selectedLocation(emit, event.location);
+    });
     add(InitMapEvent());
   }
-  Future<void>_changeTransportMode(Emitter<MapState> emit, VehicleType vehicleType) async {
+
+  Future<void> _selectedLocation(
+      Emitter<MapState> emit, LatLng location) async {
+    await _removeAllPlaceMarkers(emit);
+    _isLoading = true;
+    _emitLoadedMapState(emit);
+    DirectionInfo directionInfo = await _placeSearch.getPolylinePoints(
+        LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+        location);
+    _directionInfo = directionInfo;
+    _place = Place(
+        placeId: '1',
+        name: 'Điểm đến',
+        formattedAddress: '',
+        latitude: location.latitude,
+        longitude: location.longitude);
+    _markersPlace.add(Marker(
+      onTap: () {
+        add(MarkerTappedEvent(_place!));
+      },
+      markerId: MarkerId(_place!.placeId),
+      position: location,
+      infoWindow: InfoWindow(title: _place!.name),
+      icon: BitmapDescriptor.defaultMarker,
+    ));
+    _isLoading = false;
+    _emitLoadedMapState(emit);
+  }
+
+
+  Future<void> _enableSelectLocation(
+      Emitter<MapState> emit, bool isEnabledSelectLocation) async {
+    _isEnabledSelectLocation = isEnabledSelectLocation;
+    _emitLoadedMapState(emit);
+  }
+
+  Future<void> _changeTransportMode(
+      Emitter<MapState> emit, VehicleType vehicleType) async {
     _vehicleType = vehicleType;
-    await _direction(emit, LatLng(_currentPosition.latitude!, _currentPosition.longitude!), LatLng(_place!.latitude, _place!.longitude), _place!,vehicleType);
+    await _direction(
+        emit,
+        LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+        LatLng(_place!.latitude, _place!.longitude),
+        _place!,
+        vehicleType);
     _emitLoadedMapState(emit);
   }
 
   Future<void> _markerTapped(Emitter<MapState> emit, Place place) async {
+    _directionInfo = null;
+    _emitLoadedMapState(emit);
     _place = place;
     _emitLoadedMapState(emit);
   }
@@ -134,23 +188,20 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _searchByNearSelectedType = PlaceTypes.none;
     _query = '';
     _vehicleType = VehicleType.TWO_WHEELER;
-    // Xóa marker tìm kiếm
     _markersPlace.clear();
+    _isEnabledSelectLocation = false;
     _placesByNear.clear();
     _angelView = 0;
-    _animateMapCamera(target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!), zoom: 16);
-    emit(LoadedMapState(_currentPosition, _markerUsers, _currentMapType,
-        _trafficEnabled, _isFollowCamera,
-        googleMapController: _googleMapController, query: ''));
+    _animateMapCamera(
+        target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+        zoom: 16);
+    _emitLoadedMapState(emit);
   }
 
   Future<void> _findByNearByType(PlaceTypes type, LocationData locationData,
       Emitter<MapState> emit) async {
     if (_searchByNearSelectedType == type) {
-      _placesByNear.clear();
-      _markersPlace.clear();
-      _query = '';
-      _searchByNearSelectedType = PlaceTypes.none;
+      await _removeAllPlaceMarkers(emit);
       _emitLoadedMapState(emit);
       return;
     }
@@ -187,7 +238,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _isTrackingDirection = true;
     _angelView = 45;
     _isFollowCamera = true;
-    _zoom = 19.0;//zoom càng lớn thì camera càng gần
+    _zoom = 19.0; //zoom càng lớn thì camera càng gần
     _isJourneyStarted = true;
     double bearing = _currentPosition.heading ?? 0;
     _animateMapCamera(
@@ -227,18 +278,18 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         directionInfo: _directionInfo,
         place: _place,
         vehicleType: _vehicleType,
-        searchByNearSelectedType: _searchByNearSelectedType));
+        searchByNearSelectedType: _searchByNearSelectedType,
+        isEnabledSelectLocation: _isEnabledSelectLocation));
   }
 
   Future<void> _direction(Emitter<MapState> emit, LatLng origin,
-      LatLng destination, Place place,VehicleType vehicleType) async {
+      LatLng destination, Place place, VehicleType vehicleType) async {
     _isLoading = true;
     _emitLoadedMapState(emit);
     // Tạo đường đi giữa 2 điểm
     try {
-      DirectionInfo directionInfo =
-          await _placeSearch.getPolylinePoints(origin, destination,
-              mode: vehicleType);
+      DirectionInfo directionInfo = await _placeSearch
+          .getPolylinePoints(origin, destination, mode: vehicleType);
       _directionInfo = directionInfo;
       _isLoading = false;
       _emitLoadedMapState(emit);
@@ -370,7 +421,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
     _isFollowCamera = true;
     final bearing = _currentPosition.heading ?? 0;
-    _animateMapCamera(target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!), zoom: _zoom,angelView: _angelView,heading: bearing);
+    _animateMapCamera(
+        target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+        zoom: _zoom,
+        angelView: _angelView,
+        heading: bearing);
   }
 
   Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(user) async {

@@ -3,6 +3,7 @@ class Assets {
   Assets._();
 
   static const String gifMicrophone = 'assets/gif/microphone.gif';
+  static const String iconsAddLocation = 'assets/icons/add-location.png';
   static const String iconsCancel = 'assets/icons/cancel.png';
   static const String iconsCompass = 'assets/icons/compass.png';
   static const String iconsComplete = 'assets/icons/complete.png';

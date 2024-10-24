@@ -23,9 +23,12 @@ class LoadedMapState extends MapState {
   final String query;
   final PlaceTypes? searchByNearSelectedType;
   final VehicleType? vehicleType;
-  LoadedMapState(this.locationData,this.markers,
+  final bool isEnabledSelectLocation;
 
-      this.currentMapType,this.trafficEnabled,this.isFollowCamera,{this.googleMapController,this.place,this.directionInfo,this.isLoading=false,this.isJourneyStarted=false,this.query='',this.searchByNearSelectedType,this.vehicleType});
+
+  LoadedMapState(this.locationData,this.markers,this.currentMapType,this.trafficEnabled,this.isFollowCamera,
+      {this.googleMapController,this.place,this.directionInfo,this.isLoading=false,this.isJourneyStarted=false,this.query='',
+        this.searchByNearSelectedType,this.vehicleType,this.isEnabledSelectLocation=false});
 }
 class MapErrorState extends MapState {
   final String message;
