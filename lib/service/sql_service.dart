@@ -34,7 +34,13 @@ class SqliteService {
                 createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')) -- Thời gian tạo dưới dạng dấu thời gian Unix
               )
             ''');
-
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS tokens (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ID tự động tăng
+              access_token TEXT NOT NULL,            -- Lưu access token
+              refresh_token TEXT NOT NULL           -- Lưu refresh token
+            )
+          ''');
       },
       version: 1,
     );

@@ -7,3 +7,7 @@ class LoadedLoginState extends AuthenticationState{
   final User user;
   LoadedLoginState(this.user);
 }
+class ErrorLoginState extends AuthenticationState{
+  final String message;
+  ErrorLoginState(this.message);
+}

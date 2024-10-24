@@ -5,9 +5,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map/bloc/authentication/authentication_bloc.dart';
 import 'package:map/bloc/authentication/authentication_event.dart';
 import 'package:map/bloc/authentication/authentication_state.dart';
-import 'package:map/bloc/map/map_bloc.dart';
 import 'package:map/map_screen.dart';
 import 'package:map/repository/location_search_history_repository.dart';
+import 'package:map/repository/token_repository.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/service/authentication_service.dart';
 import 'package:map/service/location_search_history_service.dart';
@@ -24,6 +24,7 @@ void main() {
   getIt.registerLazySingleton<PlaceSearch>((() => PlaceSearch()));
   getIt.registerLazySingleton<LocationSearchHistoryRepo>((() => LocationSearchHistoryRepo()));
   getIt.registerLazySingleton<LocationSearchHistoryService>((() => LocationSearchHistoryService()));
+  getIt.registerLazySingleton<TokenRepo>((() => TokenRepo()));
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
   runApp(const MyApp());
@@ -79,6 +80,7 @@ class _MyHomePageState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(10))),
                   ),
                   onPressed: () async {
+                    _googleSignIn.signOut();
                     BlocProvider.of<AuthenticationBloc>(context)
                         .add(LoginEvent(await _googleSignIn.signIn()));
                   },
@@ -98,6 +100,19 @@ class _MyHomePageState extends State<LoginScreen> {
             ));
           }else if(state is LoadingLoginState){
             return const Center(child: CircularProgressIndicator());
+          }else if(state is ErrorLoginState){
+            return AlertDialog(
+              title: const Text("Đăng nhập thất bại"),
+              content: Text(state.message),
+              actions: [
+                TextButton(
+                    onPressed: () async {
+                      BlocProvider.of<AuthenticationBloc>(context)
+                          .add(InitAuthenticationEvent());
+                    },
+                    child: const Text("OK"))
+              ],
+            );
           }
           return const MapScreen();
         }),

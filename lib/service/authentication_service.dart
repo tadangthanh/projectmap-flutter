@@ -15,15 +15,21 @@ class AuthenticationService {
 
   Future<User> loginWithGoogle(GoogleSignInAccount? googleSignInAccount) async {
     if (googleSignInAccount == null) {
-      throw Exception('Đăng nhập thất bại, vui lòng thử lại sau! ');
+      throw Exception('Đăng nhập thất bại, vui lòng thử lại sau!');
     }
-    User user = User(
-        googleSignInAccount.displayName ??
-            googleSignInAccount.email.split("@").first,
-        googleSignInAccount.id,
-        googleSignInAccount.email,
-        googleSignInAccount.photoUrl ?? '',
-        true);
-    return await userService.saveUser(user);
+    try{
+      User user = User(
+          googleSignInAccount.displayName ??
+              googleSignInAccount.email.split("@").first,
+          googleSignInAccount.id,
+          googleSignInAccount.email,
+          googleSignInAccount.photoUrl ?? '',
+          true);
+      //save to local database
+      await userService.saveUser(user);
+      return user;
+    }catch (e){
+      throw Exception(e.toString());
+    }
   }
 }

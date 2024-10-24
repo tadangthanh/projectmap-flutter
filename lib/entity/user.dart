@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 class User {
   int? _id;
   String _name;
@@ -45,6 +47,17 @@ class User {
   set id(int? value) {
     _id = value;
   }
+  // Factory constructor để tạo đối tượng User từ một Map
+  factory User.fromMap(Map<String, dynamic> map) {
+    return User(
+      map['name'] ?? '',              // Nếu map['name'] là null, đặt thành ''
+      map['googleId'] ?? '',          // Nếu map['googleId'] là null, đặt thành ''
+      map['email'] ?? '',             // Nếu map['email'] là null, đặt thành ''
+      map['avatarUrl'] ?? '',         // Nếu map['avatarUrl'] là null, đặt thành ''
+      map['isLocationSharing'] == 1 ? true : false, // Kiểm tra isLocationSharing
+      id: map['id'],                  // Trường id có thể là null hoặc int
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -56,14 +69,12 @@ class User {
       'isLocationSharing': _isLocationSharing? 1 : 0,
     };
   }
-  factory User.fromMap(Map<String, dynamic> map) {
-    return User(
-      map['name'],
-      map['googleId'],
-      map['email'],
-      map['avatarUrl'],
-      map['isLocationSharing'] ==1?true:false ,
-      id: map['id'],
-    );
+  // Chuyển đối tượng User thành chuỗi JSON
+  String toJson() {
+    return jsonEncode(toMap()); // Sử dụng jsonEncode để chuyển đổi Map thành chuỗi JSON
+  }
+  // Tạo đối tượng User từ chuỗi JSON
+  factory User.fromJson(String source) {
+    return User.fromMap(jsonDecode(source)); // Sử dụng jsonDecode để chuyển chuỗi JSON thành Map
   }
 }

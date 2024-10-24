@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,9 +11,11 @@ import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
+import 'package:map/entity/user_dto.dart';
 import 'package:map/main.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 import '../../entity/place_type.dart';
 
@@ -19,6 +23,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   late User _user;
+  late UserDto _userDto;
+  late StompClient _client;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
   late Set<Marker> _markerUsers;
@@ -368,10 +374,34 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
+    // _client.send(
+    //     destination: '/app/location',
+    //     headers: {
+    //       'content-type': 'application/json', // Đặt tiêu đề là JSON
+    //     },
+    //     body: jsonEncode(_userDto.toJson()));
   }
 
+  void _initWebsocket() {
+    _client= StompClient(
+        config: StompConfig(
+          url: "ws://192.168.1.242:8080?token=kkk",
+          onConnect: _onConnect,
+          onWebSocketError: (dynamic error) => throw Exception("error connect $error"),
+        ));
+    _client.activate();
+  }
+  void _onConnect(StompFrame frame) {
+    print("----------------------------------------------------------------------");
+    _client.subscribe(
+        destination: '/topic/public',
+        callback: (StompFrame frame) {
+          print('Received message: ${frame.body}');
+        });
+  }
   Future<void> _init(Emitter<MapState> emit) async {
     emit(LoadingMapState());
+    // _initWebsocket();
     LocationData currentLocation = await _location.getLocation();
     // Kiểm tra và yêu cầu bật dịch vụ vị trí
     if (!await _isOpenLocationService(_location) ||
@@ -387,6 +417,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     Set<Marker> markers = await _initMarker(user, currentLocation);
     _markerUsers = markers;
     _user = user;
+    _userDto = UserDto.fromUser(user, '100', currentLocation.latitude!,
+        currentLocation.longitude!);
     _currentPosition = currentLocation;
     _trafficEnabled = false;
     _location.changeSettings(

@@ -29,7 +29,12 @@ class AuthenticationBloc
   }
   Future<void> _login(LoginEvent event, Emitter<AuthenticationState> emit) async {
     emit(LoadingLoginState());
-    User user = await _authenticationService.loginWithGoogle(event.user);
-    emit(LoadedLoginState(user));
+   try{
+     User user = await _authenticationService.loginWithGoogle(event.user);
+     emit(LoadedLoginState(user));
+   }catch (e){
+      emit(ErrorLoginState(e.toString()));
+      return;
+   }
   }
 }
