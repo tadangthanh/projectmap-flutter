@@ -135,8 +135,37 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     ));
     _isLoading = false;
     _emitLoadedMapState(emit);
+    _zoomToFit(
+        LatLng(_currentPosition.latitude!, _currentPosition.longitude!), location);
   }
+  // zoom để nhìn thấy điểm đầu và điểm kết thúc
+  Future<void> _zoomToFit(LatLng startPoint, LatLng endPoint) async {
+    if (_googleMapController != null) {
+      // Tạo LatLngBounds từ điểm bắt đầu và điểm kết thúc
+      LatLngBounds bounds = LatLngBounds(
+        southwest: LatLng(
+          startPoint.latitude < endPoint.latitude
+              ? startPoint.latitude
+              : endPoint.latitude,
+          startPoint.longitude < endPoint.longitude
+              ? startPoint.longitude
+              : endPoint.longitude,
+        ),
+        northeast: LatLng(
+          startPoint.latitude > endPoint.latitude
+              ? startPoint.latitude
+              : endPoint.latitude,
+          startPoint.longitude > endPoint.longitude
+              ? startPoint.longitude
+              : endPoint.longitude,
+        ),
+      );
 
+      // Tạo CameraUpdate để điều chỉnh zoom và di chuyển bản đồ
+      CameraUpdate cameraUpdate = CameraUpdate.newLatLngBounds(bounds, 50); // Thêm padding cho thoải mái
+      await _googleMapController?.animateCamera(cameraUpdate);
+    }
+  }
 
   Future<void> _enableSelectLocation(
       Emitter<MapState> emit, bool isEnabledSelectLocation) async {
@@ -293,6 +322,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       _directionInfo = directionInfo;
       _isLoading = false;
       _emitLoadedMapState(emit);
+      _zoomToFit(origin, destination);
       return;
     } catch (e) {
       emit(MapErrorState("Không thể lấy thông tin chỉ đường: ${e.toString()}"));
