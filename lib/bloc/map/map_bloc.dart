@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -11,7 +9,6 @@ import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
-import 'package:map/entity/user_dto.dart';
 import 'package:map/main.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
@@ -23,7 +20,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   late User _user;
-  late UserDto _userDto;
   late StompClient _client;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
@@ -417,8 +413,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     Set<Marker> markers = await _initMarker(user, currentLocation);
     _markerUsers = markers;
     _user = user;
-    _userDto = UserDto.fromUser(user, '100', currentLocation.latitude!,
-        currentLocation.longitude!);
     _currentPosition = currentLocation;
     _trafficEnabled = false;
     _location.changeSettings(

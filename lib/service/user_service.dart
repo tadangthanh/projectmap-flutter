@@ -1,10 +1,11 @@
-import 'dart:convert';
-
+import 'package:map/dto/user_search_response.dart';
 import 'package:map/entity/user.dart';
+import 'package:map/entity/user_search_response_page.dart';
 import 'package:map/main.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/util/url.dart';
-import 'package:http/http.dart' as http;
+
+import '../util/request.dart';
 
 class UserService {
   final UserRepository userRepository = getIt<UserRepository>();
@@ -13,7 +14,7 @@ class UserService {
     await userRepository.deleteUser();
     user.isLocationSharing = true;
     user= await userRepository.saveUser(user);
-    user= await createUser(user);
+    // user= await createUser(user);
     return user;
   }
 
@@ -30,35 +31,70 @@ class UserService {
   Future<User> createUser(User user) async {
     String url = "${Url.BASE_URL}/users";
     try {
-      // Encode Map<String, dynamic> thành JSON string
-      var response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json', // Đặt header cho content-type là JSON
-        },
-        body: user.toJson(), // Chuyển đối tượng User thành chuỗi JSON
-      );
-
-      if (response.statusCode == 200) {
-        // Phân tích dữ liệu phản hồi khi thành công
-        var responseData = jsonDecode(response.body);
-        if(responseData['status'] != 201){
-          throw Exception("Failed to create user: ${responseData['message']}");
-        }
-        // Tạo đối tượng User từ phản hồi của server
-        User createdUser = User.fromMap(responseData['data']);
-        return createdUser;
-      } else {
-        // Phân tích phản hồi khi có lỗi
-        var errorData = jsonDecode(response.body);
-        String errorMessage = errorData['message'] ?? 'Unknown error occurred';
-        // Ném ra ngoại lệ với thông điệp lỗi từ phản hồi
-        throw Exception("Failed to create user: $errorMessage");
-      }
+      User createdUser = User.fromMap(await NetworkService.post(url: url, body: user.toMap(), headers: {'Content-Type': 'application/json'}));
+      return createdUser;
     } catch (e) {
       // In lỗi để kiểm tra hoặc xử lý thêm
       throw Exception(e.toString());
     }
   }
 
+
+
+  Future<UserSearchResponse> findByEmail(String email) async {
+    String url = "${Url.BASE_URL}/users/email/$email";
+    try {
+      UserSearchResponse user = UserSearchResponse.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
+      return user;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+  Future<UserSearchResponsePage> getFriendPendingAccept(
+      {int page = 0, int size = 10}) async{
+    String url = "${Url.BASE_URL}/users/friend/pending/accept?page=$page&size=$size";
+    try {
+      UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
+      return userSearchResponsePage;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  Future<UserSearchResponse> addFriend(String email) async{
+    String url = "${Url.BASE_URL}/users/add";
+    try {
+      UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.post(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
+      return userSearchResponse;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+  Future<UserSearchResponse> unRequestAddFriend(String email) async{
+    String url = "${Url.BASE_URL}/users/cancel";
+    try {
+      UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.delete(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
+      return userSearchResponse;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+  Future<UserSearchResponse> rejectRequestAddFriend(String email) async{
+    String url = "${Url.BASE_URL}/users/reject";
+    try {
+      UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.delete(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
+      return userSearchResponse;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+  Future<UserSearchResponse> acceptFriend(String email) async{
+    String url = "${Url.BASE_URL}/users/accept";
+    try {
+      UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.post(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
+      return userSearchResponse;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }

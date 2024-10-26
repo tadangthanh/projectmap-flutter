@@ -5,7 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map/bloc/authentication/authentication_bloc.dart';
 import 'package:map/bloc/authentication/authentication_event.dart';
 import 'package:map/bloc/authentication/authentication_state.dart';
-import 'package:map/map_screen.dart';
+import 'package:map/home_screen.dart';
 import 'package:map/repository/location_search_history_repository.dart';
 import 'package:map/repository/token_repository.dart';
 import 'package:map/repository/user_repository.dart';
@@ -56,7 +56,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<LoginScreen> {
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'openid', // Phạm vi để yêu cầu idToken
+      'profile', // Để lấy thông tin người dùng như tên và ảnh đại diện
+    ],
+  );
   final AuthenticationBloc _authenticationBloc = AuthenticationBloc();
 
   @override
@@ -114,7 +120,7 @@ class _MyHomePageState extends State<LoginScreen> {
               ],
             );
           }
-          return const MapScreen();
+          return  HomePage();
         }),
       ),
     );

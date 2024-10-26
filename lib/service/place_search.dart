@@ -154,12 +154,10 @@ class PlaceSearch {
           width: 10,
         );
         polylines.add(polyline);
-
         // Thêm khoảng cách và thời gian
         distances.add('${result.distanceMeters} meters');
         durations.add('${result.duration} seconds');
       }
-
       // Trả về DirectionInfo chứa polyline, distance và duration
       return DirectionInfo(
           polyline: polylines, distance: distances, duration: durations);

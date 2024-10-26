@@ -21,7 +21,11 @@ class SqliteService {
                 googleId TEXT NOT NULL UNIQUE,
                 email TEXT NOT NULL UNIQUE,
                 avatarUrl TEXT,
-                isLocationSharing INTEGER NOT NULL DEFAULT 1
+                isLocationSharing INTEGER NOT NULL DEFAULT 1,
+                idToken TEXT NOT NULL,
+                batteryLevel INTEGER NOT NULL DEFAULT 100,
+                latitude REAL NOT NULL DEFAULT 0.0,
+                longitude REAL NOT NULL DEFAULT 0.0
               )
             ''');
         await db.execute(''' 
@@ -37,8 +41,8 @@ class SqliteService {
         await db.execute('''
             CREATE TABLE IF NOT EXISTS tokens (
               id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ID tự động tăng
-              access_token TEXT NOT NULL,            -- Lưu access token
-              refresh_token TEXT NOT NULL           -- Lưu refresh token
+              accessToken TEXT NOT NULL,            -- Lưu access token
+              refreshToken TEXT NOT NULL           -- Lưu refresh token
             )
           ''');
       },

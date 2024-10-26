@@ -92,13 +92,15 @@ class _MapScreenState extends State<MapScreen>
                   },
                 ),
                 // Icon location ở giữa màn hình
-                state.isEnabledSelectLocation?Center(
-                  child: Image.asset(
-                    'assets/icons/location-select.png',
-                    width: 30,
-                    height: 30,
-                  ),
-                ):const SizedBox(),
+                state.isEnabledSelectLocation
+                    ? Center(
+                        child: Image.asset(
+                          'assets/icons/location-select.png',
+                          width: 30,
+                          height: 30,
+                        ),
+                      )
+                    : const SizedBox(),
                 // Hiển thị loading khi đang tải đường đi
                 if (state.isLoading)
                   Positioned.fill(
@@ -245,7 +247,7 @@ class _MapScreenState extends State<MapScreen>
                   child: _mapMenu(context, state),
                 ),
                 // state.query.isNotEmpty &&
-                    state.place != null
+                state.place != null
                     ? _draggableWidget(context, state)
                     : const SizedBox(),
               ],
@@ -880,11 +882,46 @@ class _MapScreenState extends State<MapScreen>
     return [
       Container(
         margin: const EdgeInsets.only(right: 16),
+        child: Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none_outlined,size: 30,),
+              onPressed: () {},
+            ),
+            Positioned(
+              right: 11,
+              top: 11,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 16,
+                  minHeight: 16,
+                ),
+                child: const Text(
+                  '1',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      )
+      ,
+      Container(
+        margin: const EdgeInsets.only(right: 16),
         child: IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () {},
         ),
-      ),
+      )
     ];
   }
 
@@ -1046,10 +1083,11 @@ class _MapScreenState extends State<MapScreen>
       child: TextButton(
         onPressed: () async {
           // Xử lý khi bấm nút OKaw
-          LatLng result= await _getCenterLocation(state);
+          LatLng result = await _getCenterLocation(state);
           if (mounted) {
             // Sử dụng BuildContext nếu widget còn tồn tại
-            BlocProvider.of<MapBloc>(context).add(SelectedLocationEvent(result));
+            BlocProvider.of<MapBloc>(context)
+                .add(SelectedLocationEvent(result));
           }
         },
         style: TextButton.styleFrom(
@@ -1069,10 +1107,12 @@ class _MapScreenState extends State<MapScreen>
 
   // Lấy tọa độ trung tâm"
   Future<LatLng> _getCenterLocation(state) async {
-    LatLngBounds visibleRegion = await state.googleMapController.getVisibleRegion();
+    LatLngBounds visibleRegion =
+        await state.googleMapController.getVisibleRegion();
     LatLng centerLatLng = LatLng(
       (visibleRegion.northeast.latitude + visibleRegion.southwest.latitude) / 2,
-      (visibleRegion.northeast.longitude + visibleRegion.southwest.longitude) / 2,
+      (visibleRegion.northeast.longitude + visibleRegion.southwest.longitude) /
+          2,
     );
     return centerLatLng;
   }
