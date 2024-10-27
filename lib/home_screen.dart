@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:map/search.dart';
 
-import 'friend_screen.dart';
+import 'friend_list_tab.dart';
 import 'map_screen.dart';
 
 void main() {
@@ -32,7 +32,7 @@ class _HomePageState extends State<HomePage> {
   // Danh sách các widget đại diện cho các trang khác nhau
   static final List<Widget> _widgetOptions = <Widget>[
     MapScreen(),
-    FriendsScreen(),
+    FriendListTabScreen(),
     SearchScreen(),
   ];
 

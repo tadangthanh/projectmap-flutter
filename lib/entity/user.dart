@@ -8,12 +8,11 @@ class User {
   String _email;
   String _avatarUrl;
   bool _isLocationSharing;
-  String _idToken;
   int _batteryLevel;
   double _latitude;
   double _longitude;
 
-  User(this._name, this._googleId, this._email, this._avatarUrl, this._isLocationSharing,this._idToken,this._batteryLevel,this._latitude,this._longitude ,{int? id}) : _id = id;
+  User(this._name, this._googleId, this._email, this._avatarUrl, this._isLocationSharing,this._batteryLevel,this._latitude,this._longitude ,{int? id}) : _id = id;
 
 
   bool get isLocationSharing => _isLocationSharing;
@@ -60,11 +59,10 @@ class User {
       map['email'] ?? '',             // Nếu map['email'] là null, đặt thành ''
       map['avatarUrl'] ?? '',         // Nếu map['avatarUrl'] là null, đặt thành ''
       map['isLocationSharing'] == 1 ? true : false, // Kiểm tra isLocationSharing
-      map['idToken'] ?? '',           // Nếu map['idToken'] là null, đặt thành ''
       map['batteryLevel'] ?? 0,      // Nếu map['batteryLevel'] là null, đặt thành ''
       map['latitude'] ?? 0.0,         // Nếu map['latitude'] là null, đặt thành 0.0
       map['longitude'] ?? 0.0,        // Nếu map['longitude'] là null, đặt thành 0.0
-      id: map['id'],                  // Trường id có thể là null hoặc int
+      id: map['id']                  // Trường id có thể là null hoặc int
     );
   }
 
@@ -76,10 +74,9 @@ class User {
       'email': _email,
       'avatarUrl': _avatarUrl,
       'isLocationSharing': _isLocationSharing? 1 : 0,
-      'idToken': _idToken,
       'batteryLevel': _batteryLevel,
       'latitude': _latitude,
-      'longitude': _longitude,
+      'longitude': _longitude
     };
   }
 
@@ -93,8 +90,7 @@ class User {
   factory User.fromJson(String source) {
     return User.fromMap(jsonDecode(source)); // Sử dụng jsonDecode để chuyển chuỗi JSON thành Map
   }
-  String get idToken => _idToken;
-  set idToken(String value){ _idToken = value; }
+
 
 
 

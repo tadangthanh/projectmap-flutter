@@ -1,6 +1,6 @@
 import 'package:map/dto/user_search_response.dart';
+import 'package:map/dto/user_search_response_page.dart';
 import 'package:map/entity/user.dart';
-import 'package:map/entity/user_search_response_page.dart';
 import 'package:map/main.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/util/url.dart';
@@ -52,7 +52,17 @@ class UserService {
   }
   Future<UserSearchResponsePage> getFriendPendingAccept(
       {int page = 0, int size = 10}) async{
-    String url = "${Url.BASE_URL}/users/friend/pending/accept?page=$page&size=$size";
+    String url = "${Url.BASE_URL}/users/friends/pending/accept?page=$page&size=$size";
+    try {
+      UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
+      return userSearchResponsePage;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+  Future<UserSearchResponsePage> getFriends(
+      {int page = 0, int size = 10}) async{
+    String url = "${Url.BASE_URL}/users/friends?page=$page&size=$size";
     try {
       UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
       return userSearchResponsePage;
@@ -97,4 +107,5 @@ class UserService {
       throw Exception(e.toString());
     }
   }
+
 }

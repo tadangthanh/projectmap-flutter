@@ -1,4 +1,4 @@
-import 'package:map/dto/friend_ship_status.dart';
+import 'package:map/dto/relation_ship_role.dart';
 
 class UserSearchResponse{
    final String googleId;
@@ -6,9 +6,9 @@ class UserSearchResponse{
    final String email;
    final String avatarUrl;
    final bool friend;
-   final FriendShipStatus friendShipStatus;
+   final RelationshipRole relationshipRole;
 
-    UserSearchResponse(this.googleId, this.name, this.email, this.avatarUrl,this.friend, this.friendShipStatus);
+    UserSearchResponse(this.googleId, this.name, this.email, this.avatarUrl,this.friend,this.relationshipRole);
 
 
     factory UserSearchResponse.fromMap(Map<String, dynamic> map) {
@@ -17,20 +17,20 @@ class UserSearchResponse{
       map['name'] ?? '',              // Nếu map['name'] là null, đặt thành ''
       map['email'] ?? '',             // Nếu map['email'] là null, đặt thành ''
       map['avatarUrl'] ?? '',         // Nếu map['avatarUrl'] là null, đặt thành ''
-      map['friend'] ?? false,       // Nếu map['isFriend'] là null, đặt thành false
-      _getFriendShipStatus(map['friendShipStatus']), // Ánh xạ status an toàn hơn
+      map['friend'] ?? false,       // Nếu map['isFriend'] là null, đặt thành fals
+      _getRelationShipRole(map['relationshipRole']), // Nếu map['relationshipRole'] là null, đặt thành ''
     );
     }
-   static FriendShipStatus _getFriendShipStatus(String? status) {
-     if (status == null) {
-       return FriendShipStatus.NONE; // Giá trị mặc định nếu không tìm thấy
+   static RelationshipRole _getRelationShipRole(String? role) {
+     if (role == null) {
+       return RelationshipRole.NONE; // Giá trị mặc định nếu không tìm thấy
      }
      try {
-       return FriendShipStatus.values.firstWhere(
-             (element) => element.toString().split('.').last == status,
+       return RelationshipRole.values.firstWhere(
+             (element) => element.toString().split('.').last == role,
        );
      } catch (e) {
-       return FriendShipStatus.NONE; // Trả về giá trị an toàn nếu không khớp
+       return RelationshipRole.NONE; // Trả về giá trị an toàn nếu không khớp
      }
    }
 }

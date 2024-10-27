@@ -885,7 +885,10 @@ class _MapScreenState extends State<MapScreen>
         child: Stack(
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_none_outlined,size: 30,),
+              icon: const Icon(
+                Icons.notifications_none_outlined,
+                size: 30,
+              ),
               onPressed: () {},
             ),
             Positioned(
@@ -913,8 +916,7 @@ class _MapScreenState extends State<MapScreen>
             ),
           ],
         ),
-      )
-      ,
+      ),
       Container(
         margin: const EdgeInsets.only(right: 16),
         child: IconButton(

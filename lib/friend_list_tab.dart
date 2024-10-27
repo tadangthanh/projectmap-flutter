@@ -1,39 +1,39 @@
 import 'package:flutter/material.dart';
 
-class FriendsListTab extends StatelessWidget {
+import 'friends_screen.dart';
+import 'friend_request_tab_screen.dart';
+
+class FriendListTabScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Danh sách bạn bè', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          SizedBox(height: 16),
-          Expanded(
-            child: ListView.builder(
-              itemCount: 10, // Placeholder for number of friends
-              itemBuilder: (context, index) {
-                return Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 2,
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blueAccent,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    title: Text('Friend $index'),
-                    subtitle: Text('friend$index@example.com'),
-                  ),
-                );
-              },
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bạn bè', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(50),
+            child: TabBar(
+              labelColor: Colors.blueAccent,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: Colors.blueAccent,
+              indicatorWeight: 3,
+              tabs: [
+                Tab(text: 'Danh sách bạn bè'),
+                Tab(text: 'Lời mời kết bạn'),
+              ],
             ),
           ),
-        ],
+        ),
+        body: TabBarView(
+          children: [
+            FriendScreen(),
+            FriendRequestTab(),
+          ],
+        ),
       ),
     );
   }
 }
-
-
-

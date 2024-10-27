@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -5,11 +7,14 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
+import 'package:map/dto/user_move.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
+import 'package:map/entity/token_response.dart';
 import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
 import 'package:map/main.dart';
+import 'package:map/repository/token_repository.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
@@ -18,8 +23,11 @@ import '../../entity/place_type.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
+  final TokenRepo _tokenRepo = getIt<TokenRepo>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   late User _user;
+  late UserMove _userMove;
+  late TokenResponse? _tokenResponse = null;
   late StompClient _client;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
@@ -370,18 +378,19 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
-    // _client.send(
-    //     destination: '/app/location',
-    //     headers: {
-    //       'content-type': 'application/json', // Đặt tiêu đề là JSON
-    //     },
-    //     body: jsonEncode(_userDto.toJson()));
+    _client.send(
+        destination: '/app/on-move',
+        headers: {
+          'Content-type': 'application/json', // Đặt tiêu đề là JSON
+          'Authorization': 'Bearer ${_tokenResponse?.accessToken}'
+        },
+        body: jsonEncode(_userMove.toMap()));
   }
 
   void _initWebsocket() {
     _client= StompClient(
         config: StompConfig(
-          url: "ws://192.168.1.242:8080?token=kkk",
+          url: "ws://192.168.1.242:8080/ws?token=${_tokenResponse?.accessToken}",
           onConnect: _onConnect,
           onWebSocketError: (dynamic error) => throw Exception("error connect $error"),
         ));
@@ -390,14 +399,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   void _onConnect(StompFrame frame) {
     print("----------------------------------------------------------------------");
     _client.subscribe(
-        destination: '/topic/public',
+        destination: '/user/private/friend-location',
         callback: (StompFrame frame) {
           print('Received message: ${frame.body}');
         });
   }
   Future<void> _init(Emitter<MapState> emit) async {
     emit(LoadingMapState());
-    // _initWebsocket();
     LocationData currentLocation = await _location.getLocation();
     // Kiểm tra và yêu cầu bật dịch vụ vị trí
     if (!await _isOpenLocationService(_location) ||
@@ -410,9 +418,15 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       emit(LoadingMapState());
       return;
     }
+    _tokenResponse = await _tokenRepo.getToken();
+    if(_tokenResponse == null){
+      emit(MapErrorState("Token không tồn tại"));
+      return;
+    }
     Set<Marker> markers = await _initMarker(user, currentLocation);
     _markerUsers = markers;
     _user = user;
+    _userMove = UserMove.fromUser(user);
     _currentPosition = currentLocation;
     _trafficEnabled = false;
     _location.changeSettings(
@@ -420,6 +434,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     emit(LoadedMapState(currentLocation, markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
         googleMapController: null));
+    _initWebsocket();
   }
 
   Future<Set<Marker>> _initMarker(user, LocationData currentLocation) async {

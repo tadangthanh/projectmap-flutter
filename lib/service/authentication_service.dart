@@ -38,7 +38,6 @@ class AuthenticationService {
           googleSignInAccount.email,
           googleSignInAccount.photoUrl ?? '',
           true,
-          idToken,
           100,
           0.0,
           0.0);

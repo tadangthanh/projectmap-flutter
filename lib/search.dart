@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:map/bloc/user_search/user_search_bloc.dart';
+import 'package:map/dto/relation_ship_role.dart';
 
 import 'bloc/user_search/user_search_event.dart';
 import 'bloc/user_search/user_search_state.dart';
-import 'dto/friend_ship_status.dart';
 
 void main() {
   runApp(MyApp());
@@ -203,10 +203,10 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
   Widget _buildIconAddFriend(context, user) {
-    FriendShipStatus friendShipStatus = user.friendShipStatus;
+    RelationshipRole relationshipRole = user.relationshipRole;
     if (user.friend) {
       return const Icon(Icons.group);
-    } else if (friendShipStatus == FriendShipStatus.PENDING) {
+    } else if (relationshipRole == RelationshipRole.TARGET) {
       return TextButton(
         onPressed: () {
           BlocProvider.of<UserSearchBloc>(context)
@@ -217,7 +217,7 @@ class _SearchScreenState extends State<SearchScreen> {
           style: TextStyle(color: Colors.blueAccent),
         ),
       );
-    } else if (friendShipStatus == FriendShipStatus.PENDING_YOU_ACCEPT) {
+    } else if (relationshipRole == RelationshipRole.AUTHOR) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -243,7 +243,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ],
       );
-    } else if (friendShipStatus == FriendShipStatus.NONE) {
+    } else if (relationshipRole == RelationshipRole.NONE) {
       return TextButton(
         onPressed: () {
           BlocProvider.of<UserSearchBloc>(context)
