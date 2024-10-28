@@ -1,5 +1,7 @@
 import 'dart:convert';
-
+import 'dart:math';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
-import 'package:map/dto/user_move.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/token_response.dart';
@@ -26,12 +27,14 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final TokenRepo _tokenRepo = getIt<TokenRepo>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   late User _user;
-  late UserMove _userMove;
+  late List<User> _friends = [];
+  // late UserMove _userMove;
+  late User? _friendTapped= null;
   late TokenResponse? _tokenResponse = null;
   late StompClient _client;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
-  late Set<Marker> _markerUsers;
+  late List<Marker> _markerUsers;
   late final Set<Marker> _markersPlace = {};
   late Marker _placeSearchMarker = const Marker(markerId: MarkerId(''));
   late MapType _currentMapType = MapType.normal;
@@ -116,7 +119,24 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     on<SelectedLocationEvent>((event, emit) async {
       await _selectedLocation(emit, event.location);
     });
+    // update marker khi friend di chuyen
+    on<UpdateMarkersEvent>((event, emit) async {
+      _emitLoadedMapState(emit);
+    });
+    // su kien khi nguoi dung tap vao icon ban be tren ban do
+    on<MarkerFriendTappedEvent>((event, emit) async {
+      await  _markerFriendTapped(emit, event.friend);
+    });
+    // su kien dong cua so friend
+    on<CloseFriendTappedEvent> ((event, emit) async {
+      _friendTapped=null;
+      _emitLoadedMapState(emit);
+    });
     add(InitMapEvent());
+  }
+  Future<void> _markerFriendTapped(Emitter<MapState> emit, User friend) async {
+    _friendTapped=friend;
+    _emitLoadedMapState(emit);
   }
 
   Future<void> _selectedLocation(
@@ -145,9 +165,10 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     ));
     _isLoading = false;
     _emitLoadedMapState(emit);
-    _zoomToFit(
-        LatLng(_currentPosition.latitude!, _currentPosition.longitude!), location);
+    _zoomToFit(LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+        location);
   }
+
   // zoom để nhìn thấy điểm đầu và điểm kết thúc
   Future<void> _zoomToFit(LatLng startPoint, LatLng endPoint) async {
     if (_googleMapController != null) {
@@ -172,7 +193,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       );
 
       // Tạo CameraUpdate để điều chỉnh zoom và di chuyển bản đồ
-      CameraUpdate cameraUpdate = CameraUpdate.newLatLngBounds(bounds, 50); // Thêm padding cho thoải mái
+      CameraUpdate cameraUpdate = CameraUpdate.newLatLngBounds(
+          bounds, 50); // Thêm padding cho thoải mái
       await _googleMapController?.animateCamera(cameraUpdate);
     }
   }
@@ -205,6 +227,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _updateLocation(
       Emitter<MapState> emit, LocationData locationData) async {
     await _updateUserLocation(locationData);
+    print("update location ${locationData.latitude} ${locationData.longitude}");
     _emitLoadedMapState(emit);
   }
 
@@ -231,6 +254,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _isEnabledSelectLocation = false;
     _placesByNear.clear();
     _angelView = 0;
+    _friendTapped=null;
     _animateMapCamera(
         target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
         zoom: 16);
@@ -288,6 +312,23 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _emitLoadedMapState(emit);
   }
 
+  void _emitLoadedMapState(Emitter<MapState> emit) {
+    List<Marker> markers = [];
+    markers.addAll(_markerUsers);
+    markers.addAll(_markersPlace);
+    emit(LoadedMapState(_currentPosition, markers, _currentMapType,
+        _trafficEnabled, _isFollowCamera,
+        googleMapController: _googleMapController,
+        query: _query,
+        isLoading: _isLoading,
+        isJourneyStarted: _isJourneyStarted,
+        directionInfo: _directionInfo,
+        place: _place,
+        vehicleType: _vehicleType,
+        searchByNearSelectedType: _searchByNearSelectedType,
+        isEnabledSelectLocation: _isEnabledSelectLocation,friendTapped: _friendTapped));
+  }
+
   Future<void> _animateMapCamera(
       {required LatLng target,
       required double zoom,
@@ -302,23 +343,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
             bearing: heading ?? 0),
       ),
     );
-  }
-
-  void _emitLoadedMapState(Emitter<MapState> emit) {
-    Set<Marker> markers = {};
-    markers.addAll(_markerUsers);
-    markers.addAll(_markersPlace);
-    emit(LoadedMapState(_currentPosition, markers, _currentMapType,
-        _trafficEnabled, _isFollowCamera,
-        googleMapController: _googleMapController,
-        query: _query,
-        isLoading: _isLoading,
-        isJourneyStarted: _isJourneyStarted,
-        directionInfo: _directionInfo,
-        place: _place,
-        vehicleType: _vehicleType,
-        searchByNearSelectedType: _searchByNearSelectedType,
-        isEnabledSelectLocation: _isEnabledSelectLocation));
   }
 
   Future<void> _direction(Emitter<MapState> emit, LatLng origin,
@@ -360,6 +384,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _loadedMapControllerState(
       Emitter<MapState> emit, LoadedMapControllerEvent event) async {
     _googleMapController = event.googleMapController;
+    for(Marker m in _markerUsers){
+      _googleMapController!.showMarkerInfoWindow(m.markerId);
+    }
     _location.onLocationChanged.listen((LocationData currentLocation) {
       // Cập nhật vị trí khi có sự thay đổi
       add(LocationChangedEvent(currentLocation));
@@ -378,32 +405,79 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
+    // Cập nhật vị trí của người dùng
+    _user.longitude = currentLocation.longitude!;
+    _user.latitude = currentLocation.latitude!;
+    _user.speed = currentLocation.speed??0;
     _client.send(
         destination: '/app/on-move',
         headers: {
           'Content-type': 'application/json', // Đặt tiêu đề là JSON
           'Authorization': 'Bearer ${_tokenResponse?.accessToken}'
         },
-        body: jsonEncode(_userMove.toMap()));
+        body: jsonEncode(_user.toMap()));
   }
 
   void _initWebsocket() {
-    _client= StompClient(
+    _client = StompClient(
         config: StompConfig(
-          url: "ws://192.168.1.242:8080/ws?token=${_tokenResponse?.accessToken}",
-          onConnect: _onConnect,
-          onWebSocketError: (dynamic error) => throw Exception("error connect $error"),
-        ));
+      url: "ws://192.168.1.242:8080/ws?token=${_tokenResponse?.accessToken}",
+      onConnect: _onConnect,
+      onWebSocketError: (dynamic error) =>
+          throw Exception("error connect $error"),
+    ));
     _client.activate();
   }
+
   void _onConnect(StompFrame frame) {
-    print("----------------------------------------------------------------------");
+    print(
+        "----------------------------------------------------------------------");
     _client.subscribe(
+        headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
         destination: '/user/private/friend-location',
-        callback: (StompFrame frame) {
-          print('Received message: ${frame.body}');
-        });
+        callback:onListenWs);
   }
+
+  void onListenWs(StompFrame frame) {
+    if(frame.body != null){
+      User userFriend=  User.fromMap(jsonDecode(frame.body!));
+      for(int i=0;i<_markerUsers.length;i++){
+        if(_markerUsers[i].markerId.value==userFriend.googleId){
+          BitmapDescriptor bitmapDescriptor = _markerUsers[i].icon;
+          _markerUsers[i]=Marker(
+            markerId: MarkerId(userFriend.googleId),
+            position: LatLng(userFriend.latitude, userFriend.longitude),
+            infoWindow: InfoWindow(title: "${userFriend.name}, speed: ${_convertMsToKmh(userFriend.speed)}km/h, distance: ${_calculateDistance(_currentPosition.latitude!,_currentPosition.longitude!,userFriend.latitude,userFriend.longitude)}m"),
+            icon:bitmapDescriptor,
+          );
+        }
+      }
+      add(UpdateMarkersEvent()); // Kích hoạt sự kiện để cập nhật bản đồ
+    }
+  }
+  int _convertMsToKmh(double speedMs) {
+    return (speedMs * 3.6).round();
+  }
+  int _calculateDistance(double startLatitude, double startLongitude, double endLatitude, double endLongitude) {
+    const double earthRadius = 6371000; // Bán kính trái đất (mét)
+
+    double dLat = _degreeToRadian(endLatitude - startLatitude);
+    double dLon = _degreeToRadian(endLongitude - startLongitude);
+
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degreeToRadian(startLatitude)) *
+            cos(_degreeToRadian(endLatitude)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return (earthRadius * c).round();
+  }
+
+  double _degreeToRadian(double degree) {
+    return degree * pi / 180;
+  }
+
   Future<void> _init(Emitter<MapState> emit) async {
     emit(LoadingMapState());
     LocationData currentLocation = await _location.getLocation();
@@ -414,33 +488,63 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       return;
     }
     User? user = await _userService.getUser();
+    _friends= await _userService.getAllFriends();
     if (user == null) {
       emit(LoadingMapState());
       return;
     }
     _tokenResponse = await _tokenRepo.getToken();
-    if(_tokenResponse == null){
+    if (_tokenResponse == null) {
       emit(MapErrorState("Token không tồn tại"));
       return;
     }
-    Set<Marker> markers = await _initMarker(user, currentLocation);
+
+    List<Marker> markers = await _initMarker(user,_friends, currentLocation);
     _markerUsers = markers;
     _user = user;
-    _userMove = UserMove.fromUser(user);
+    // _userMove = UserMove.fromUser(user);
     _currentPosition = currentLocation;
     _trafficEnabled = false;
+    // interval là thơì gian cập nhật, distanceFilter là khoảng cách cập nhật
+    // sau 2s nó sẽ kiểm tra cập nhật, nếu di chuyển 20m thì Mới thông báo
     _location.changeSettings(
-        interval: 1000, distanceFilter: 1, accuracy: LocationAccuracy.high);
+        interval: 1000, distanceFilter: 5, accuracy: LocationAccuracy.high);
     emit(LoadedMapState(currentLocation, markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
         googleMapController: null));
     _initWebsocket();
   }
 
-  Future<Set<Marker>> _initMarker(user, LocationData currentLocation) async {
+  Future<List<Marker>> _initMarker(user, friends, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
-    return {
+
+    // Sử dụng Future.wait để khởi tạo Marker của bạn bè đồng thời
+    List<Future<Marker>> futureMarkers = friends.map<Future<Marker>>((element) async {
+      return Marker(
+        markerId: MarkerId(element.googleId),
+        position: LatLng(element.latitude, element.longitude),
+        infoWindow: InfoWindow(title: "${element.name}, speed: ${element.speed}"),
+        icon: await _convertAvatarUrlToBitMapDescriptor(element.avatarUrl),
+        onTap: () {
+          // Khi người dùng nhấn vào Marker, hiển thị thông tin
+          add(MarkerFriendTappedEvent(element));
+        },
+      );
+    }).toList();
+
+    // Chờ tất cả các Future hoàn thành và lấy danh sách Marker
+    List<Marker> friendMarkers = await Future.wait(futureMarkers);
+
+    // Thêm Marker cho Hoàng Sa và Trường Sa
+    List<Marker> staticMarkers = await _getStaticMarkers(hoangSa, truongSa);
+
+    // Kết hợp tất cả các Marker
+    return [...friendMarkers, ...staticMarkers];
+  }
+
+  Future<List<Marker>> _getStaticMarkers(LatLng hoangSa, LatLng truongSa) async {
+    return [
       Marker(
         markerId: const MarkerId('HoangSa'),
         position: hoangSa,
@@ -453,8 +557,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         infoWindow: const InfoWindow(title: 'Quần đảo Trường Sa (Vietnam)'),
         icon: await _customMarker("assets/icons/vietnam-location.png"),
       ),
-    };
+    ];
   }
+
 
   Future<bool> _isOpenLocationService(Location location) async {
     bool serviceEnabled = await location.serviceEnabled();
@@ -499,21 +604,65 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         heading: bearing);
   }
 
-  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(user) async {
+  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(String url) async {
     // Tải ảnh từ URL
-    final url = user.avatarUrl; // Thay thế bằng URL thực tế
-    if (url == null || url.trim().isEmpty) {
+    if (url.isEmpty) {
       return BitmapDescriptor.asset(
-          const ImageConfiguration(
-            size: Size(35, 35),
-          ),
-          'assets/icons/user-location.png');
+        const ImageConfiguration(size: Size(35, 35)),
+        'assets/icons/user-location.png',
+      );
     }
+
     final response = await http.get(Uri.parse(url));
     if (response.statusCode == 200) {
-      return BitmapDescriptor.bytes(response.bodyBytes, width: 35, height: 35);
+      final Uint8List imageData = response.bodyBytes;
+
+      // Tải dữ liệu ảnh thành `ui.Image`
+      final ui.Codec codec = await ui.instantiateImageCodec(imageData, targetWidth: 35, targetHeight: 35);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final ui.Image image = frameInfo.image;
+
+      // Khởi tạo `PictureRecorder` và `Canvas`
+      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(pictureRecorder);
+      final double size = 35.0;
+
+      // Vẽ hình tròn
+      final Paint paint = Paint()..color = Colors.transparent;
+      canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
+
+      // Tạo `Path` cho hình tròn để cắt ảnh
+      final Path clipPath = Path()..addOval(Rect.fromLTWH(0.0, 0.0, size, size));
+      canvas.clipPath(clipPath);
+
+      // Vẽ ảnh đã tải lên `Canvas`
+      paint.color = Colors.white; // Bạn có thể thay đổi màu nền (nếu muốn)
+      canvas.drawImageRect(
+        image,
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+        Rect.fromLTWH(0, 0, size, size),
+        paint,
+      );
+
+      // Chuyển `Picture` thành `Image`
+      final ui.Image finalImage = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
+
+      // Chuyển đổi `Image` thành `ByteData`
+      final ByteData? byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('Failed to convert image to ByteData');
+      }
+
+      // Chuyển đổi `ByteData` thành `Uint8List`
+      final Uint8List finalImageData = byteData.buffer.asUint8List();
+
+      // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
+      return BitmapDescriptor.bytes( finalImageData);
     } else {
-      throw Exception('Failed to load marker image');
+      return BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(35, 35)),
+        'assets/icons/user-location.png',
+      );
     }
   }
 
@@ -525,4 +674,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         ),
         urlAsset);
   }
+
+
 }

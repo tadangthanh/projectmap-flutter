@@ -27,6 +27,7 @@ void main() {
   getIt.registerLazySingleton<TokenRepo>((() => TokenRepo()));
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
+
   runApp(const MyApp());
 }
 

@@ -3,6 +3,7 @@ import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/travel_mode_enum.dart';
+import 'package:map/entity/user.dart';
 
 import '../../entity/place_type.dart';
 
@@ -69,3 +70,9 @@ class SelectedLocationEvent extends MapEvent{
   final LatLng location;
   SelectedLocationEvent(this.location);
 }
+class UpdateMarkersEvent extends MapEvent {}
+class MarkerFriendTappedEvent extends MapEvent {
+  final User friend;
+  MarkerFriendTappedEvent(this.friend);
+}
+class CloseFriendTappedEvent extends MapEvent {}

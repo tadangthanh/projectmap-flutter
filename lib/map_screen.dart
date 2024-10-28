@@ -76,7 +76,7 @@ class _MapScreenState extends State<MapScreen>
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
-                  markers: state.markers,
+                  markers: state.markers.toSet(),
                   mapType: state.currentMapType,
                   polylines: state.directionInfo != null
                       ? state.directionInfo!
@@ -250,6 +250,27 @@ class _MapScreenState extends State<MapScreen>
                 state.place != null
                     ? _draggableWidget(context, state)
                     : const SizedBox(),
+                // Làm mờ bản đồ và xử lý nhấn bên ngoài _buildWidgetFriend
+                if (state.friendTapped != null)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () {
+                        // Gửi sự kiện để đóng _buildWidgetFriend
+                        BlocProvider.of<MapBloc>(context).add(CloseFriendTappedEvent());
+                      },
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+                        child: Container(
+                          color: Colors.black.withOpacity(0.4), // Màu nền mờ
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Hiển thị _buildWidgetFriend nếu friendTapped khác null
+                if (state.friendTapped != null)
+                  _buildWidgetFriend(context, state),
+
               ],
             ),
           );
@@ -258,6 +279,94 @@ class _MapScreenState extends State<MapScreen>
       }),
     );
   }
+
+  Widget _buildWidgetFriend(BuildContext context,  state) {
+    // Lấy thông tin friend từ state
+    final user = state.friendTapped;
+
+    return Positioned(
+      top: 100, // Vị trí của widget
+      left: 20, // Vị trí của widget
+      right: 20,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Avatar của bạn bè
+            CircleAvatar(
+              radius: 35,
+              backgroundImage: NetworkImage(user.avatarUrl),
+              onBackgroundImageError: (_, __) => const Icon(Icons.person), // Hiển thị biểu tượng nếu ảnh không load được
+            ),
+            const SizedBox(height: 12),
+
+            // Tên và email của bạn bè
+            Text(
+              user.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              user.email,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 12),
+
+            // Thông tin tốc độ
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildInfoRow(Icons.speed, "Speed", "${user.speed.toStringAsFixed(1)} km/h"),
+                _buildInfoRow(Icons.battery_full, "Battery", "${user.batteryLevel}%"),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Thông tin vị trí
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildInfoRow(Icons.location_on, "Latitude", user.latitude.toStringAsFixed(5)),
+                _buildInfoRow(Icons.location_on, "Longitude", user.longitude.toStringAsFixed(5)),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Khoảng cách
+            _buildInfoRow(Icons.directions_walk, "Distance", "${user.distance.toStringAsFixed(2)} m"),
+          ],
+        ),
+      ),
+    );
+  }
+
+// Tiện ích để hiển thị thông tin dạng biểu tượng + nhãn + giá trị
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[700]),
+        SizedBox(width: 8),
+        Text(
+          "$label: ",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        Text(value),
+      ],
+    );
+  }
+
 
   Widget _customButton({
     required IconData icon,

@@ -60,6 +60,16 @@ class UserService {
       throw Exception(e.toString());
     }
   }
+  Future<List<User>> getAllFriends() async{
+    String url = "${Url.BASE_URL}/users/friends/all";
+    try {
+      List<User> users = User.fromListJson(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
+      return users;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
   Future<UserSearchResponsePage> getFriends(
       {int page = 0, int size = 10}) async{
     String url = "${Url.BASE_URL}/users/friends?page=$page&size=$size";
@@ -108,4 +118,12 @@ class UserService {
     }
   }
 
+  Future<void> test() async {
+    String url = "${Url.BASE_URL}/users/test";
+    try {
+      await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'});
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }
