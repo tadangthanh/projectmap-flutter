@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -10,16 +13,22 @@ import 'package:map/repository/location_search_history_repository.dart';
 import 'package:map/repository/token_repository.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/service/authentication_service.dart';
+import 'package:map/service/back_service.dart';
 import 'package:map/service/location_search_history_service.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/sql_service.dart';
 import 'package:map/service/user_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:workmanager/workmanager.dart';
 
 final getIt = GetIt.instance;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   getIt.registerLazySingleton<SqliteService>((() => SqliteService()));
   getIt.registerLazySingleton<UserRepository>((() => UserRepository()));
+  getIt.registerLazySingleton<BackendService>((() => BackendService()));
   getIt.registerLazySingleton<UserService>((() => UserService()));
   getIt.registerLazySingleton<PlaceSearch>((() => PlaceSearch()));
   getIt.registerLazySingleton<LocationSearchHistoryRepo>((() => LocationSearchHistoryRepo()));
@@ -28,7 +37,60 @@ void main() {
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
 
+
+  await Permission.notification.isDenied.then((value) {
+    if (value) {
+      Permission.notification.request();
+    }
+  });
+  // Kiểm tra trạng thái dịch vụ
+  final service = FlutterBackgroundService();
+  bool isRunning = await service.isRunning();
+
+  // Chỉ khởi tạo nếu dịch vụ chưa chạy
+  if (!isRunning) {
+    BackendService backendService = getIt<BackendService>();
+    await backendService.initializedService();
+  }
+  await Workmanager().cancelAll(); // Hủy công việc trước đó nếu có
+  Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+  Workmanager().registerPeriodicTask(
+    "1",
+    "foregroundServiceTask",
+    frequency: const Duration(minutes: 15), // Chạy mỗi giờ
+     // Chạy ngay sau khi đăng ký
+  );
+
   runApp(const MyApp());
+}
+
+void callbackDispatcher() {
+  final getIt = GetIt.instance;
+  getIt.registerLazySingleton<SqliteService>((() => SqliteService()));
+  getIt.registerLazySingleton<UserRepository>((() => UserRepository()));
+  getIt.registerLazySingleton<BackendService>((() => BackendService()));
+  getIt.registerLazySingleton<UserService>((() => UserService()));
+  getIt.registerLazySingleton<PlaceSearch>((() => PlaceSearch()));
+  getIt.registerLazySingleton<LocationSearchHistoryRepo>((() => LocationSearchHistoryRepo()));
+  getIt.registerLazySingleton<LocationSearchHistoryService>((() => LocationSearchHistoryService()));
+  getIt.registerLazySingleton<TokenRepo>((() => TokenRepo()));
+  getIt.registerLazySingleton<AuthenticationService>(
+      (() => AuthenticationService()));
+  Workmanager().executeTask((task, inputData) async {
+    final UserService userService = getIt<UserService>();
+    await userService.test();
+    // Bắt đầu foreground service
+    // final service = FlutterBackgroundService();
+    // await service.startService();
+    // service.invoke("setAsForeground"); // Chạy foreground service khi được kích hoạt
+
+    // Dừng foreground service sau khi thực hiện xong
+    // Timer(Duration(seconds: 10), () { // Dừng service sau 5 phút (hoặc thời gian tùy chọn)
+    //   service.invoke("stopService");
+    // });
+
+    return Future.value(true);
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -127,6 +189,11 @@ class _MyHomePageState extends State<LoginScreen> {
     );
   }
 
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+  }
   @override
   void dispose() {
     // TODO: implement dispose

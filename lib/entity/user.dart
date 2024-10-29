@@ -102,7 +102,7 @@ class User {
       'latitude': _latitude,
       'longitude': _longitude,
       'speed': _speed,
-      'distance': _distance,
+      'distance': _distance
     };
   }
 

@@ -42,7 +42,7 @@ class AuthenticationService {
           0.0,
           0.0,
           0.0,
-          0.0,);
+          0.0);
       TokenResponse tokenResponse = await authentication(idToken);
       await tokenRepo.saveToken(tokenResponse);
       await userService.saveUser(user);

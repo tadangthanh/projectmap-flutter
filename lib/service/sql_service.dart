@@ -22,10 +22,11 @@ class SqliteService {
                 email TEXT NOT NULL UNIQUE,
                 avatarUrl TEXT,
                 isLocationSharing INTEGER NOT NULL DEFAULT 1,
-                idToken TEXT NOT NULL,
                 batteryLevel INTEGER NOT NULL DEFAULT 100,
                 latitude REAL NOT NULL DEFAULT 0.0,
-                longitude REAL NOT NULL DEFAULT 0.0
+                longitude REAL NOT NULL DEFAULT 0.0,
+                speed REAL NOT NULL DEFAULT 0.0,
+                distance REAL NOT NULL DEFAULT 0.0
               )
             ''');
         await db.execute(''' 

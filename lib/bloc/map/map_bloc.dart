@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +18,7 @@ import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
 import 'package:map/main.dart';
 import 'package:map/repository/token_repository.dart';
+import 'package:map/service/back_service.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
@@ -26,10 +29,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
   final TokenRepo _tokenRepo = getIt<TokenRepo>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
+  final BackendService _backendService = getIt<BackendService>();
   late User _user;
   late List<User> _friends = [];
   // late UserMove _userMove;
-  late User? _friendTapped= null;
+  late User? _friendTapped = null;
   late TokenResponse? _tokenResponse = null;
   late StompClient _client;
   late GoogleMapController? _googleMapController;
@@ -89,6 +93,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     // thay đổi kiểu  bản đồ : bản đồ đường, bản đồ vệ tinh,..
     on<ChangeMapTypeEvent>((event, emit) async {
+      // FlutterBackgroundService().invoke("stopService");
+
       await _changeMapType(emit, event.mapType);
     });
     //Cập nhật vị trí
@@ -125,17 +131,18 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     // su kien khi nguoi dung tap vao icon ban be tren ban do
     on<MarkerFriendTappedEvent>((event, emit) async {
-      await  _markerFriendTapped(emit, event.friend);
+      await _markerFriendTapped(emit, event.friend);
     });
     // su kien dong cua so friend
-    on<CloseFriendTappedEvent> ((event, emit) async {
-      _friendTapped=null;
+    on<CloseFriendTappedEvent>((event, emit) async {
+      _friendTapped = null;
       _emitLoadedMapState(emit);
     });
     add(InitMapEvent());
   }
+
   Future<void> _markerFriendTapped(Emitter<MapState> emit, User friend) async {
-    _friendTapped=friend;
+    _friendTapped = friend;
     _emitLoadedMapState(emit);
   }
 
@@ -227,7 +234,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _updateLocation(
       Emitter<MapState> emit, LocationData locationData) async {
     await _updateUserLocation(locationData);
-    print("update location ${locationData.latitude} ${locationData.longitude}");
     _emitLoadedMapState(emit);
   }
 
@@ -243,6 +249,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   Future<void> _removeAllPlaceMarkers(Emitter<MapState> emit) async {
+    // _backendService.stopService();
     _isTrackingDirection = false;
     _place = null;
     _directionInfo = null;
@@ -254,7 +261,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _isEnabledSelectLocation = false;
     _placesByNear.clear();
     _angelView = 0;
-    _friendTapped=null;
+    _friendTapped = null;
     _animateMapCamera(
         target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
         zoom: 16);
@@ -297,6 +304,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
   Future<void> _startTrackingDirection(
       DirectionInfo directionInfo, Emitter<MapState> emit) async {
+    // await _backendService.startService();
     _emitLoadedMapState(emit);
     _isTrackingDirection = true;
     _angelView = 45;
@@ -326,7 +334,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         place: _place,
         vehicleType: _vehicleType,
         searchByNearSelectedType: _searchByNearSelectedType,
-        isEnabledSelectLocation: _isEnabledSelectLocation,friendTapped: _friendTapped));
+        isEnabledSelectLocation: _isEnabledSelectLocation,
+        friendTapped: _friendTapped));
   }
 
   Future<void> _animateMapCamera(
@@ -384,7 +393,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _loadedMapControllerState(
       Emitter<MapState> emit, LoadedMapControllerEvent event) async {
     _googleMapController = event.googleMapController;
-    for(Marker m in _markerUsers){
+    for (Marker m in _markerUsers) {
       _googleMapController!.showMarkerInfoWindow(m.markerId);
     }
     _location.onLocationChanged.listen((LocationData currentLocation) {
@@ -408,7 +417,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // Cập nhật vị trí của người dùng
     _user.longitude = currentLocation.longitude!;
     _user.latitude = currentLocation.latitude!;
-    _user.speed = currentLocation.speed??0;
+    _user.speed = currentLocation.speed ?? 0;
     _client.send(
         destination: '/app/on-move',
         headers: {
@@ -435,30 +444,35 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _client.subscribe(
         headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
         destination: '/user/private/friend-location',
-        callback:onListenWs);
+        callback: onListenWs);
   }
 
   void onListenWs(StompFrame frame) {
-    if(frame.body != null){
-      User userFriend=  User.fromMap(jsonDecode(frame.body!));
-      for(int i=0;i<_markerUsers.length;i++){
-        if(_markerUsers[i].markerId.value==userFriend.googleId){
+    if (frame.body != null) {
+      User userFriend = User.fromMap(jsonDecode(frame.body!));
+      for (int i = 0; i < _markerUsers.length; i++) {
+        if (_markerUsers[i].markerId.value == userFriend.googleId) {
           BitmapDescriptor bitmapDescriptor = _markerUsers[i].icon;
-          _markerUsers[i]=Marker(
+          _markerUsers[i] = Marker(
             markerId: MarkerId(userFriend.googleId),
             position: LatLng(userFriend.latitude, userFriend.longitude),
-            infoWindow: InfoWindow(title: "${userFriend.name}, speed: ${_convertMsToKmh(userFriend.speed)}km/h, distance: ${_calculateDistance(_currentPosition.latitude!,_currentPosition.longitude!,userFriend.latitude,userFriend.longitude)}m"),
-            icon:bitmapDescriptor,
+            infoWindow: InfoWindow(
+                title:
+                    "${userFriend.name}, speed: ${_convertMsToKmh(userFriend.speed)}km/h, distance: ${_calculateDistance(_currentPosition.latitude!, _currentPosition.longitude!, userFriend.latitude, userFriend.longitude)}m"),
+            icon: bitmapDescriptor,
           );
         }
       }
       add(UpdateMarkersEvent()); // Kích hoạt sự kiện để cập nhật bản đồ
     }
   }
+
   int _convertMsToKmh(double speedMs) {
     return (speedMs * 3.6).round();
   }
-  int _calculateDistance(double startLatitude, double startLongitude, double endLatitude, double endLongitude) {
+
+  int _calculateDistance(double startLatitude, double startLongitude,
+      double endLatitude, double endLongitude) {
     const double earthRadius = 6371000; // Bán kính trái đất (mét)
 
     double dLat = _degreeToRadian(endLatitude - startLatitude);
@@ -479,6 +493,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   Future<void> _init(Emitter<MapState> emit) async {
+    // FlutterBackgroundService().invoke("setAsForeground");
     emit(LoadingMapState());
     LocationData currentLocation = await _location.getLocation();
     // Kiểm tra và yêu cầu bật dịch vụ vị trí
@@ -488,7 +503,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       return;
     }
     User? user = await _userService.getUser();
-    _friends= await _userService.getAllFriends();
+    _friends = await _userService.getAllFriends();
     if (user == null) {
       emit(LoadingMapState());
       return;
@@ -499,7 +514,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       return;
     }
 
-    List<Marker> markers = await _initMarker(user,_friends, currentLocation);
+    List<Marker> markers = await _initMarker(user, _friends, currentLocation);
     _markerUsers = markers;
     _user = user;
     // _userMove = UserMove.fromUser(user);
@@ -515,16 +530,19 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _initWebsocket();
   }
 
-  Future<List<Marker>> _initMarker(user, friends, LocationData currentLocation) async {
+  Future<List<Marker>> _initMarker(
+      user, friends, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
 
     // Sử dụng Future.wait để khởi tạo Marker của bạn bè đồng thời
-    List<Future<Marker>> futureMarkers = friends.map<Future<Marker>>((element) async {
+    List<Future<Marker>> futureMarkers =
+        friends.map<Future<Marker>>((element) async {
       return Marker(
         markerId: MarkerId(element.googleId),
         position: LatLng(element.latitude, element.longitude),
-        infoWindow: InfoWindow(title: "${element.name}, speed: ${element.speed}"),
+        infoWindow:
+            InfoWindow(title: "${element.name}, speed: ${element.speed}"),
         icon: await _convertAvatarUrlToBitMapDescriptor(element.avatarUrl),
         onTap: () {
           // Khi người dùng nhấn vào Marker, hiển thị thông tin
@@ -543,7 +561,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     return [...friendMarkers, ...staticMarkers];
   }
 
-  Future<List<Marker>> _getStaticMarkers(LatLng hoangSa, LatLng truongSa) async {
+  Future<List<Marker>> _getStaticMarkers(
+      LatLng hoangSa, LatLng truongSa) async {
     return [
       Marker(
         markerId: const MarkerId('HoangSa'),
@@ -559,7 +578,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       ),
     ];
   }
-
 
   Future<bool> _isOpenLocationService(Location location) async {
     bool serviceEnabled = await location.serviceEnabled();
@@ -588,6 +606,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   Future<void> _getCurrentLocation(Emitter<MapState> emit) async {
+    // _backendService.initializedService();
+    // FlutterBackgroundService().invoke("setAsForeground");
+    // await _backendService.startService();
+    // FlutterBackgroundService().invoke("setAsForeground");
+
     if (_isTrackingDirection) {
       _zoom = _zoom == 19.0 ? 14.0 : 19.0;
       _angelView = _zoom == 19.0 ? 45 : 0;
@@ -604,7 +627,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         heading: bearing);
   }
 
-  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(String url) async {
+  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(
+      String url) async {
     // Tải ảnh từ URL
     if (url.isEmpty) {
       return BitmapDescriptor.asset(
@@ -618,7 +642,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       final Uint8List imageData = response.bodyBytes;
 
       // Tải dữ liệu ảnh thành `ui.Image`
-      final ui.Codec codec = await ui.instantiateImageCodec(imageData, targetWidth: 35, targetHeight: 35);
+      final ui.Codec codec = await ui.instantiateImageCodec(imageData,
+          targetWidth: 35, targetHeight: 35);
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image image = frameInfo.image;
 
@@ -632,7 +657,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
 
       // Tạo `Path` cho hình tròn để cắt ảnh
-      final Path clipPath = Path()..addOval(Rect.fromLTWH(0.0, 0.0, size, size));
+      final Path clipPath = Path()
+        ..addOval(Rect.fromLTWH(0.0, 0.0, size, size));
       canvas.clipPath(clipPath);
 
       // Vẽ ảnh đã tải lên `Canvas`
@@ -645,10 +671,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       );
 
       // Chuyển `Picture` thành `Image`
-      final ui.Image finalImage = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
+      final ui.Image finalImage = await pictureRecorder
+          .endRecording()
+          .toImage(size.toInt(), size.toInt());
 
       // Chuyển đổi `Image` thành `ByteData`
-      final ByteData? byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData =
+          await finalImage.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         throw Exception('Failed to convert image to ByteData');
       }
@@ -657,7 +686,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       final Uint8List finalImageData = byteData.buffer.asUint8List();
 
       // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
-      return BitmapDescriptor.bytes( finalImageData);
+      return BitmapDescriptor.bytes(finalImageData);
     } else {
       return BitmapDescriptor.asset(
         const ImageConfiguration(size: Size(35, 35)),
@@ -674,6 +703,4 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         ),
         urlAsset);
   }
-
-
 }

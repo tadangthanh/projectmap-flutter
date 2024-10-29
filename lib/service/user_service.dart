@@ -25,7 +25,6 @@ class UserService {
   Future<void> deleteUSer() async {
     return await userRepository.deleteUser();
   }
-
   // send to backend to save user
 
   Future<User> createUser(User user) async {
@@ -39,8 +38,6 @@ class UserService {
     }
   }
 
-
-
   Future<UserSearchResponse> findByEmail(String email) async {
     String url = "${Url.BASE_URL}/users/email/$email";
     try {
@@ -50,8 +47,7 @@ class UserService {
       throw Exception(e.toString());
     }
   }
-  Future<UserSearchResponsePage> getFriendPendingAccept(
-      {int page = 0, int size = 10}) async{
+  Future<UserSearchResponsePage> getFriendPendingAccept({int page = 0, int size = 10}) async{
     String url = "${Url.BASE_URL}/users/friends/pending/accept?page=$page&size=$size";
     try {
       UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
@@ -69,9 +65,7 @@ class UserService {
       throw Exception(e.toString());
     }
   }
-
-  Future<UserSearchResponsePage> getFriends(
-      {int page = 0, int size = 10}) async{
+  Future<UserSearchResponsePage> getFriends({int page = 0, int size = 10}) async{
     String url = "${Url.BASE_URL}/users/friends?page=$page&size=$size";
     try {
       UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
@@ -121,7 +115,7 @@ class UserService {
   Future<void> test() async {
     String url = "${Url.BASE_URL}/users/test";
     try {
-      await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'});
+      await NetworkService.post(url: url, headers: {'Content-Type': 'application/json'}, body: {});
     } catch (e) {
       throw Exception(e.toString());
     }

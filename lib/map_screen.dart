@@ -256,7 +256,8 @@ class _MapScreenState extends State<MapScreen>
                     child: GestureDetector(
                       onTap: () {
                         // Gửi sự kiện để đóng _buildWidgetFriend
-                        BlocProvider.of<MapBloc>(context).add(CloseFriendTappedEvent());
+                        BlocProvider.of<MapBloc>(context)
+                            .add(CloseFriendTappedEvent());
                       },
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
@@ -270,7 +271,6 @@ class _MapScreenState extends State<MapScreen>
                 // Hiển thị _buildWidgetFriend nếu friendTapped khác null
                 if (state.friendTapped != null)
                   _buildWidgetFriend(context, state),
-
               ],
             ),
           );
@@ -280,7 +280,7 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
-  Widget _buildWidgetFriend(BuildContext context,  state) {
+  Widget _buildWidgetFriend(BuildContext context, state) {
     // Lấy thông tin friend từ state
     final user = state.friendTapped;
 
@@ -308,7 +308,8 @@ class _MapScreenState extends State<MapScreen>
             CircleAvatar(
               radius: 35,
               backgroundImage: NetworkImage(user.avatarUrl),
-              onBackgroundImageError: (_, __) => const Icon(Icons.person), // Hiển thị biểu tượng nếu ảnh không load được
+              onBackgroundImageError: (_, __) => const Icon(
+                  Icons.person), // Hiển thị biểu tượng nếu ảnh không load được
             ),
             const SizedBox(height: 12),
 
@@ -328,24 +329,28 @@ class _MapScreenState extends State<MapScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildInfoRow(Icons.speed, "Speed", "${user.speed.toStringAsFixed(1)} km/h"),
-                _buildInfoRow(Icons.battery_full, "Battery", "${user.batteryLevel}%"),
+                _buildInfoRow(
+                    Icons.battery_full, "Battery", "${user.batteryLevel}%"),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 5),
 
             // Thông tin vị trí
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildInfoRow(Icons.location_on, "Latitude", user.latitude.toStringAsFixed(5)),
-                _buildInfoRow(Icons.location_on, "Longitude", user.longitude.toStringAsFixed(5)),
+                _buildInfoRow(Icons.location_on, "Latitude",
+                    user.latitude.toStringAsFixed(5)),
+                const SizedBox(height: 5),
+                _buildInfoRow(Icons.location_on, "Longitude",
+                    user.longitude.toStringAsFixed(5)),
               ],
             ),
             const SizedBox(height: 12),
 
             // Khoảng cách
-            _buildInfoRow(Icons.directions_walk, "Distance", "${user.distance.toStringAsFixed(2)} m"),
+            _buildInfoRow(Icons.directions_walk, "Distance",
+                "${user.distance.toStringAsFixed(2)} m"),
           ],
         ),
       ),
@@ -366,7 +371,6 @@ class _MapScreenState extends State<MapScreen>
       ],
     );
   }
-
 
   Widget _customButton({
     required IconData icon,
