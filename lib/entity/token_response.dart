@@ -2,8 +2,9 @@ class TokenResponse {
   int? _id;
   String _accessToken;
   String _refreshToken;
+  String _fcmToken;
 
-  TokenResponse(this._accessToken, this._refreshToken, {int? id}) : _id = id;
+  TokenResponse(this._accessToken, this._refreshToken,this._fcmToken, {int? id}) : _id = id;
 
   String get refreshToken => _refreshToken;
 
@@ -21,6 +22,7 @@ class TokenResponse {
     return TokenResponse(
       map['accessToken'] ?? '', // Nếu map['accessToken'] là null, đặt thành ''
       map['refreshToken'] ?? '',
+      map['fcmToken'] ?? '',
       // Nếu map['refreshToken'] là null, đặt thành ''
       id: map['id'] ?? 0, // Nếu map['id'] là null, đặt thành 0
     );
@@ -32,11 +34,19 @@ class TokenResponse {
     _id = value;
   }
 
+
+  String get fcmToken => _fcmToken;
+
+  set fcmToken(String value) {
+    _fcmToken = value;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': _id,
       'accessToken': _accessToken,
       'refreshToken': _refreshToken,
+      'fcmToken': _fcmToken
     };
   }
 }

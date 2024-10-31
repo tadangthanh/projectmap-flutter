@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -23,6 +23,7 @@ import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
+import '../../entity/map_theme.dart';
 import '../../entity/place_type.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
@@ -31,7 +32,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   final BackendService _backendService = getIt<BackendService>();
   late User _user;
+  late List<String> styles = [];
   late List<User> _friends = [];
+
   // late UserMove _userMove;
   late User? _friendTapped = null;
   late TokenResponse? _tokenResponse = null;
@@ -57,6 +60,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late PlaceTypes _searchByNearSelectedType = PlaceTypes.none;
   late VehicleType _vehicleType = VehicleType.TWO_WHEELER;
   late bool _isEnabledSelectLocation = false;
+  late String _style = "";
 
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
@@ -138,9 +142,18 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       _friendTapped = null;
       _emitLoadedMapState(emit);
     });
+    // thay doi theme ma
+    on<ChangeMapThemeEvent>((event, emit) async {
+      await _changeMapTheme(emit, event.mapTheme);
+    });
     add(InitMapEvent());
   }
 
+
+  Future<void> _changeMapTheme(Emitter<MapState> emit, MapTheme mapTheme) async {
+    _style = await _loadMapStyle(mapTheme);
+    _emitLoadedMapState(emit);
+  }
   Future<void> _markerFriendTapped(Emitter<MapState> emit, User friend) async {
     _friendTapped = friend;
     _emitLoadedMapState(emit);
@@ -335,7 +348,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         vehicleType: _vehicleType,
         searchByNearSelectedType: _searchByNearSelectedType,
         isEnabledSelectLocation: _isEnabledSelectLocation,
-        friendTapped: _friendTapped));
+        friendTapped: _friendTapped,
+        style: _style));
   }
 
   Future<void> _animateMapCamera(
@@ -414,10 +428,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
+    Battery _battery = Battery();
     // Cập nhật vị trí của người dùng
     _user.longitude = currentLocation.longitude!;
     _user.latitude = currentLocation.latitude!;
     _user.speed = currentLocation.speed ?? 0;
+    _user.batteryLevel = await _battery.batteryLevel;
+    _user.lasTimeOnline = DateTime.now();
     _client.send(
         destination: '/app/on-move',
         headers: {
@@ -439,20 +456,18 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   void _onConnect(StompFrame frame) {
-    print(
-        "----------------------------------------------------------------------");
     _client.subscribe(
         headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
         destination: '/user/private/friend-location',
         callback: onListenWs);
   }
 
-  void onListenWs(StompFrame frame) {
+  void onListenWs(StompFrame frame)  async{
     if (frame.body != null) {
       User userFriend = User.fromMap(jsonDecode(frame.body!));
       for (int i = 0; i < _markerUsers.length; i++) {
         if (_markerUsers[i].markerId.value == userFriend.googleId) {
-          BitmapDescriptor bitmapDescriptor = _markerUsers[i].icon;
+          BitmapDescriptor bitmapDescriptor = await createCustomMarkerBitmap(userFriend.name, "${_convertMsToKmh(userFriend.speed)}", "${_calculateDistance(_currentPosition.latitude!, _currentPosition.longitude!, userFriend.latitude, userFriend.longitude)}", "${userFriend.batteryLevel}","${userFriend.lastTimeOnline.hour}:${userFriend.lastTimeOnline.minute}",userFriend.avatarUrl);
           _markerUsers[i] = Marker(
             markerId: MarkerId(userFriend.googleId),
             position: LatLng(userFriend.latitude, userFriend.longitude),
@@ -467,13 +482,14 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
   }
 
+
   int _convertMsToKmh(double speedMs) {
     return (speedMs * 3.6).round();
   }
 
-  int _calculateDistance(double startLatitude, double startLongitude,
+  double _calculateDistance(double startLatitude, double startLongitude,
       double endLatitude, double endLongitude) {
-    const double earthRadius = 6371000; // Bán kính trái đất (mét)
+    const double earthRadius = 6371; // Bán kính trái đất (km)
 
     double dLat = _degreeToRadian(endLatitude - startLatitude);
     double dLon = _degreeToRadian(endLongitude - startLongitude);
@@ -485,8 +501,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
             sin(dLon / 2);
 
     double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return (earthRadius * c).round();
+    double distance = earthRadius * c;
+
+    return double.parse(distance.toStringAsFixed(1)); // Trả về khoảng cách với 1 chữ số sau dấu phẩy
   }
+
 
   double _degreeToRadian(double degree) {
     return degree * pi / 180;
@@ -495,6 +514,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _init(Emitter<MapState> emit) async {
     // FlutterBackgroundService().invoke("setAsForeground");
     emit(LoadingMapState());
+    _initMapStyle();
     LocationData currentLocation = await _location.getLocation();
     // Kiểm tra và yêu cầu bật dịch vụ vị trí
     if (!await _isOpenLocationService(_location) ||
@@ -543,7 +563,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         position: LatLng(element.latitude, element.longitude),
         infoWindow:
             InfoWindow(title: "${element.name}, speed: ${element.speed}"),
-        icon: await _convertAvatarUrlToBitMapDescriptor(element.avatarUrl),
+        icon: await createCustomMarkerBitmap(element.name,"${element.speed}", "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}", "${element.batteryLevel}", "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",element.avatarUrl),
         onTap: () {
           // Khi người dùng nhấn vào Marker, hiển thị thông tin
           add(MarkerFriendTappedEvent(element));
@@ -568,13 +588,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         markerId: const MarkerId('HoangSa'),
         position: hoangSa,
         infoWindow: const InfoWindow(title: 'Quần đảo Hoàng Sa (Vietnam)'),
-        icon: await _customMarker("assets/icons/vietnam-location.png"),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       ),
       Marker(
         markerId: const MarkerId('TruongSa'),
         position: truongSa,
         infoWindow: const InfoWindow(title: 'Quần đảo Trường Sa (Vietnam)'),
-        icon: await _customMarker("assets/icons/vietnam-location.png"),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       ),
     ];
   }
@@ -627,11 +647,10 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         heading: bearing);
   }
 
-  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(
-      String url) async {
+  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(String url) async {
     // Tải ảnh từ URL
     if (url.isEmpty) {
-      return BitmapDescriptor.asset(
+      return BitmapDescriptor.fromAssetImage(
         const ImageConfiguration(size: Size(35, 35)),
         'assets/icons/user-location.png',
       );
@@ -643,31 +662,37 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
       // Tải dữ liệu ảnh thành `ui.Image`
       final ui.Codec codec = await ui.instantiateImageCodec(imageData,
-          targetWidth: 35, targetHeight: 35);
+          targetWidth: 70, targetHeight: 70); // Mở rộng kích thước để thêm hiệu ứng sáng
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image image = frameInfo.image;
 
       // Khởi tạo `PictureRecorder` và `Canvas`
       final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
       final Canvas canvas = Canvas(pictureRecorder);
-      final double size = 35.0;
+      final double size = 70.0; // Kích thước tăng lên để vẽ cả vòng sáng
 
-      // Vẽ hình tròn
-      final Paint paint = Paint()..color = Colors.transparent;
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2, paint);
+      // Vẽ vòng sáng xung quanh
+      final Paint glowPaint = Paint()
+        ..color = Colors.blueAccent.withOpacity(0.5)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15.0); // Hiệu ứng blur để tạo vòng sáng
+      canvas.drawCircle(Offset(size / 2, size / 2), size / 2, glowPaint);
+
+      // Vẽ hình tròn chứa ảnh avatar
+      final Paint circlePaint = Paint()..color = Colors.transparent;
+      canvas.drawCircle(Offset(size / 2, size / 2), size / 2, circlePaint);
 
       // Tạo `Path` cho hình tròn để cắt ảnh
       final Path clipPath = Path()
-        ..addOval(Rect.fromLTWH(0.0, 0.0, size, size));
+        ..addOval(Rect.fromLTWH((size - 50) / 2, (size - 50) / 2, 50, 50));
       canvas.clipPath(clipPath);
 
       // Vẽ ảnh đã tải lên `Canvas`
-      paint.color = Colors.white; // Bạn có thể thay đổi màu nền (nếu muốn)
       canvas.drawImageRect(
         image,
         Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-        Rect.fromLTWH(0, 0, size, size),
-        paint,
+        Rect.fromLTWH((size - 50) / 2, (size - 50) / 2, 50, 50), // Kích thước nhỏ hơn để vẽ avatar vào trong vòng sáng
+        Paint(),
       );
 
       // Chuyển `Picture` thành `Image`
@@ -677,7 +702,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
       // Chuyển đổi `Image` thành `ByteData`
       final ByteData? byteData =
-          await finalImage.toByteData(format: ui.ImageByteFormat.png);
+      await finalImage.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         throw Exception('Failed to convert image to ByteData');
       }
@@ -686,14 +711,174 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       final Uint8List finalImageData = byteData.buffer.asUint8List();
 
       // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
-      return BitmapDescriptor.bytes(finalImageData);
+      return BitmapDescriptor.fromBytes(finalImageData);
     } else {
-      return BitmapDescriptor.asset(
+      return BitmapDescriptor.fromAssetImage(
         const ImageConfiguration(size: Size(35, 35)),
         'assets/icons/user-location.png',
       );
     }
   }
+
+
+  Map<String,ui.Image> _cacheImages = {};
+
+  Future<BitmapDescriptor> createCustomMarkerBitmap(
+      String userName, String speed, String distance, String batteryLevel, String time, String imageUrl) async {
+    // Tải ảnh từ URL
+    late ui.Image avatarImage;
+    if(_cacheImages.containsKey(imageUrl)){
+      avatarImage = _cacheImages[imageUrl]!;
+    }else{
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load user image');
+      }
+
+      final Uint8List imageData = response.bodyBytes;
+
+      // Tải dữ liệu ảnh thành `ui.Image`
+      final ui.Codec codec = await ui.instantiateImageCodec(imageData,
+          targetWidth: 100, targetHeight: 100); // Đặt kích thước cho ảnh avatar
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      avatarImage = frameInfo.image;
+      _cacheImages[imageUrl] = avatarImage;
+    }
+    // Lưu ảnh vào cache để sử dụng lại
+
+    // Khởi tạo `PictureRecorder` và `Canvas`
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    final double width = 400.0; // Chiều rộng marker
+    final double height = 250.0; // Chiều cao của marker
+
+    // Vẽ nền cho marker (hình chữ nhật bo tròn)
+    final Paint backgroundPaint = Paint()..color = Colors.blueAccent;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, width, 150), Radius.circular(20)),
+      backgroundPaint,
+    );
+
+    // Vẽ phần "nhọn" bên dưới (hình tam giác)
+    final Paint trianglePaint = Paint()..color = Colors.blueAccent;
+    final Path trianglePath = Path();
+    trianglePath.moveTo(width / 2 - 20, 150); // Điểm trái dưới của tam giác
+    trianglePath.lineTo(width / 2 + 20, 150); // Điểm phải dưới của tam giác
+    trianglePath.lineTo(width / 2, 190); // Đỉnh của tam giác
+    trianglePath.close();
+
+    canvas.drawPath(trianglePath, trianglePaint);
+
+    // Vẽ avatar (hình tròn ở bên trái)
+    final double avatarOffset = 25.0;
+    final double avatarRadius = 50.0;
+
+    // Vẽ nền tròn cho avatar
+    final Paint avatarBackgroundPaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(avatarOffset + avatarRadius, avatarOffset + avatarRadius), avatarRadius, avatarBackgroundPaint);
+
+    // Vẽ avatar
+    canvas.save();
+    canvas.clipPath(Path()
+      ..addOval(Rect.fromCircle(center: Offset(avatarOffset + avatarRadius, avatarOffset + avatarRadius), radius: avatarRadius)));
+    canvas.drawImageRect(
+      avatarImage,
+      Rect.fromLTWH(0, 0, avatarImage.width.toDouble(), avatarImage.height.toDouble()),
+      Rect.fromLTWH(avatarOffset, avatarOffset, avatarRadius * 2, avatarRadius * 2),
+      Paint(),
+    );
+    canvas.restore();
+
+    // Vẽ phần tên người dùng (bên phải, ngang hàng với avatar)
+    final TextPainter userNameTextPainter = TextPainter(
+      text: TextSpan(
+        text: userName,
+        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    userNameTextPainter.layout();
+    userNameTextPainter.paint(canvas, const Offset(140, 20));
+
+    // Vẽ icon tốc độ và thông tin tốc độ (ở dưới phần tên người dùng)
+    final TextPainter speedIconTextPainter = TextPainter(
+      text: const TextSpan(
+        text: "🚗", // Unicode icon cho tốc độ (xe ô tô)
+        style: TextStyle(fontSize: 36),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    speedIconTextPainter.layout();
+    speedIconTextPainter.paint(canvas, const Offset(140, 60));
+
+    final TextPainter speedTextPainter = TextPainter(
+      text: TextSpan(
+        text: "$speed km/h",
+        style: const TextStyle(color: Colors.white, fontSize: 24),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    speedTextPainter.layout();
+    speedTextPainter.paint(canvas, const Offset(180, 70));
+
+    // Vẽ icon khoảng cách và thông tin khoảng cách
+    final TextPainter distanceIconTextPainter = TextPainter(
+      text: const TextSpan(
+        text: "📏", // Unicode icon cho khoảng cách (địa điểm)
+        style: TextStyle(fontSize: 36),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    distanceIconTextPainter.layout();
+    distanceIconTextPainter.paint(canvas, const Offset(140, 110));
+
+    final TextPainter distanceTextPainter = TextPainter(
+      text: TextSpan(
+        text: "$distance km",
+        style: const TextStyle(color: Colors.white, fontSize: 24),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    distanceTextPainter.layout();
+    distanceTextPainter.paint(canvas, const Offset(180, 120));
+
+    // Vẽ nền màu trắng cho phần pin và thời gian
+    final Paint batteryTimeBackgroundPaint = Paint()..color = Colors.white;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(10, 160, width - 20, 50), Radius.circular(15)),
+      batteryTimeBackgroundPaint,
+    );
+
+    // Vẽ icon pin và thời gian trong cùng một hàng (ở dưới cùng)
+    final TextPainter batteryTimeTextPainter = TextPainter(
+      text: TextSpan(
+        text: "🔋 $batteryLevel %   🕒 $time", // Hiển thị icon pin và thời gian
+        style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    batteryTimeTextPainter.layout();
+    batteryTimeTextPainter.paint(canvas, const Offset(20, 170));
+
+    // Chuyển đổi `Picture` thành `Image`
+    final ui.Image markerAsImage = await pictureRecorder
+        .endRecording()
+        .toImage(width.toInt(), height.toInt());
+
+    // Chuyển đổi `Image` thành `ByteData`
+    final ByteData? byteData = await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) {
+      throw Exception('Failed to convert marker to ByteData');
+    }
+
+    // Chuyển đổi `ByteData` thành `Uint8List`
+    final Uint8List imageDataFinal = byteData.buffer.asUint8List();
+
+    // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
+    return BitmapDescriptor.bytes(imageDataFinal, width: 150, height: 90, imagePixelRatio: 3.0);
+  }
+
+
 
   Future<AssetMapBitmap> _customMarker(String urlAsset) {
     return BitmapDescriptor.asset(
@@ -702,5 +887,32 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           size: Size(48, 48),
         ),
         urlAsset);
+  }
+
+  void _initMapStyle() {
+    styles.add('assets/style/map_style_dark.json');
+    styles.add('assets/style/map_style_retro.json');
+    styles.add('assets/style/map_style_silver.json');
+  }
+
+  Future<String> _loadMapStyle(MapTheme theme) async {
+    String filePath;
+    switch (theme) {
+      case MapTheme.DARK:
+        filePath = 'assets/style/map_style_dark.json';
+        break;
+      case MapTheme.RETRO:
+        filePath = 'assets/style/map_style_retro.json';
+        break;
+      case MapTheme.SILVER:
+        filePath = 'assets/style/map_style_silver.json';
+        break;
+      case MapTheme.STANDARD:
+      default:
+        filePath = 'assets/style/map_style_standard.json';
+        break;
+    }
+
+    return await rootBundle.loadString(filePath);
   }
 }

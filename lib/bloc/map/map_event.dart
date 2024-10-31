@@ -1,6 +1,7 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
+import 'package:map/entity/map_theme.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
@@ -76,3 +77,7 @@ class MarkerFriendTappedEvent extends MapEvent {
   MarkerFriendTappedEvent(this.friend);
 }
 class CloseFriendTappedEvent extends MapEvent {}
+class ChangeMapThemeEvent extends MapEvent {
+  final MapTheme mapTheme;
+  ChangeMapThemeEvent(this.mapTheme);
+}

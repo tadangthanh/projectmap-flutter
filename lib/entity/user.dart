@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:intl/intl.dart';
+
 class User {
   int? _id;
   String _name;
@@ -12,6 +14,7 @@ class User {
   double _longitude;
   double _speed;
   double _distance;
+  DateTime _lastTimeOnline = DateTime.now();
 
   User(
       this._name,
@@ -24,6 +27,7 @@ class User {
       this._longitude,
       this._speed,
       this._distance,
+      this._lastTimeOnline,
       {int? id})
       : _id = id;
 
@@ -63,31 +67,33 @@ class User {
     _id = value;
   }
 
-  // Factory constructor để tạo đối tượng User từ một Map
   factory User.fromMap(Map<String, dynamic> map) {
+    DateTime? lastTimeOnline;
+    if (map['lastTimeOnline'] != null) {
+      try {
+        final format = DateFormat("HH:mm:ss");
+        lastTimeOnline = format.parse(map['lastTimeOnline']);
+      } catch (e) {
+        lastTimeOnline = DateTime.now(); // Nếu lỗi khi parse, đặt thành DateTime hiện tại
+      }
+    } else {
+      lastTimeOnline = DateTime.now(); // Nếu không có giá trị, đặt thành DateTime hiện tại
+    }
+
     return User(
-        map['name'] ?? '',
-        // Nếu map['name'] là null, đặt thành ''
-        map['googleId'] ?? '',
-        // Nếu map['googleId'] là null, đặt thành ''
-        map['email'] ?? '',
-        // Nếu map['email'] là null, đặt thành ''
-        map['avatarUrl'] ?? '',
-        // Nếu map['avatarUrl'] là null, đặt thành ''
-        map['isLocationSharing'] == 1 ? true : false,
-        // Kiểm tra isLocationSharing
-        map['batteryLevel'] ?? 0,
-        // Nếu map['batteryLevel'] là null, đặt thành ''
-        map['latitude'] ?? 0.0,
-        // Nếu map['latitude'] là null, đặt thành 0.0
-        map['longitude'] ?? 0.0,
-        // Nếu map['longitude'] là null, đặt thành 0.0
-        map['speed'] ?? 0.0,
-        // Nếu map['longitude'] là null, đặt thành 0.0
-        map['distance'] ?? 0.0,
-        // Nếu map['longitude'] là null, đặt thành 0.0
-        id: map['id'] // Trường id có thể là null hoặc int
-        );
+      map['name'] ?? '',
+      map['googleId'] ?? '',
+      map['email'] ?? '',
+      map['avatarUrl'] ?? '',
+      map['isLocationSharing'] == 1 ? true : false,
+      map['batteryLevel'] ?? 0,
+      map['latitude'] ?? 0.0,
+      map['longitude'] ?? 0.0,
+      map['speed'] ?? 0.0,
+      map['distance'] ?? 0.0,
+      lastTimeOnline,
+      id: map['id'], // Trường id có thể là null hoặc int
+    );
   }
 
   Map<String, dynamic> toMap() {
@@ -102,7 +108,8 @@ class User {
       'latitude': _latitude,
       'longitude': _longitude,
       'speed': _speed,
-      'distance': _distance
+      'distance': _distance,
+       'lasTimeOnline': _lastTimeOnline.toIso8601String()
     };
   }
 
@@ -158,4 +165,11 @@ class User {
   set speed(double value) {
     _speed = value;
   }
+
+  DateTime get lastTimeOnline => _lastTimeOnline;
+
+  set lasTimeOnline(DateTime value) {
+    _lastTimeOnline = value;
+  }
+
 }

@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map/entity/user.dart';
 import 'package:map/repository/token_repository.dart';
@@ -42,7 +43,7 @@ class AuthenticationService {
           0.0,
           0.0,
           0.0,
-          0.0);
+          0.0,DateTime.now());
       TokenResponse tokenResponse = await authentication(idToken);
       await tokenRepo.saveToken(tokenResponse);
       await userService.saveUser(user);
@@ -56,9 +57,10 @@ class AuthenticationService {
   Future<TokenResponse> authentication(String idToken) async {
     String url = "${Url.BASE_URL}/auth/google";
     try {
-      final Map<String, String> headers = {'X-ID-TOKEN': idToken};
-      TokenResponse tokenResponse = TokenResponse.fromMap(
-          await await NetworkService.post(
+      final firebaseMessaging = FirebaseMessaging.instance;
+      String fcmToken = await firebaseMessaging.getToken() ?? '';
+      final Map<String, String> headers = {'X-ID-TOKEN': idToken,'FCM-TOKEN': fcmToken};
+      TokenResponse tokenResponse = TokenResponse.fromMap(await NetworkService.post(
               url: url, headers: headers, body: null));
       return tokenResponse;
     } catch (e) {

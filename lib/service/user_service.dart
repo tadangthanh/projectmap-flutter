@@ -1,3 +1,4 @@
+import 'package:geolocator/geolocator.dart';
 import 'package:map/dto/user_search_response.dart';
 import 'package:map/dto/user_search_response_page.dart';
 import 'package:map/entity/user.dart';
@@ -112,10 +113,36 @@ class UserService {
     }
   }
 
+  Future<void> updateLocationOffline() async {
+    String url = "${Url.BASE_URL}/users/update/location/offline";
+    Position location = await Geolocator.getCurrentPosition();
+    print('-----------------------------------------------------------updateLocationOffline');
+    User? user = await getUser();
+    if(user!=null){
+      user.latitude = location.latitude;
+      user.longitude = location.longitude;
+      user.speed = location.speed??0;
+      await saveUser(user);
+      try {
+        await NetworkService.post(url: url, body: user.toMap(), headers: {'Content-Type': 'application/json'});
+      } catch (e) {
+        throw Exception(e.toString());
+      }
+    }
+  }
   Future<void> test() async {
     String url = "${Url.BASE_URL}/users/test";
     try {
-      await NetworkService.post(url: url, headers: {'Content-Type': 'application/json'}, body: {});
+      await NetworkService.post(url: url, body: {}, headers: {});
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  Future<void> unFriend(String email) async {
+    String url = "${Url.BASE_URL}/users/unfriend";
+    try {
+      await NetworkService.delete(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'});
     } catch (e) {
       throw Exception(e.toString());
     }

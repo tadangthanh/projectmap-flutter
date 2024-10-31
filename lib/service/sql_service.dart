@@ -26,7 +26,8 @@ class SqliteService {
                 latitude REAL NOT NULL DEFAULT 0.0,
                 longitude REAL NOT NULL DEFAULT 0.0,
                 speed REAL NOT NULL DEFAULT 0.0,
-                distance REAL NOT NULL DEFAULT 0.0
+                distance REAL NOT NULL DEFAULT 0.0,
+                lasTimeOnline INTEGER NOT NULL DEFAULT (strftime('%s', 'now')) -- Thời gian tạo dưới dạng dấu thời gian Unix
               )
             ''');
         await db.execute(''' 
@@ -43,7 +44,8 @@ class SqliteService {
             CREATE TABLE IF NOT EXISTS tokens (
               id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ID tự động tăng
               accessToken TEXT NOT NULL,            -- Lưu access token
-              refreshToken TEXT NOT NULL           -- Lưu refresh token
+              refreshToken TEXT NOT NULL,           -- Lưu refresh token
+              fcmToken TEXT NOT NULL                -- Lưu fcm token
             )
           ''');
       },

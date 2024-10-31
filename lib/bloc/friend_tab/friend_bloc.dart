@@ -20,10 +20,24 @@ class FriendBloc extends Bloc<FriendEvent, FriendState> {
     on<LoadMoreFriendEvent>((event, emit) async {
       await _loadMore(emit);
     });
+    on<UnFriendEvent>((event, emit) async {
+      await _unFriend(event, emit);
+    });
 
 
     add(InitialFriendEvent());
   }
+  Future<void> _unFriend(UnFriendEvent event, Emitter<FriendState> emit) async {
+    emit(FriendLoaded(listUser: _listUser, isLoading: true, hasNext: _hasNext));
+    try {
+      await _userService.unFriend(event.email);
+      _listUser.removeWhere((element) => element.email == event.email);
+      emit(FriendLoaded(listUser: _listUser, isLoading: false, hasNext: _hasNext));
+    } catch (e) {
+      emit(FriendError(message: e.toString()));
+    }
+  }
+
   Future<void> _loadMore(Emitter<FriendState> emit) async {
     emit(FriendLoaded(listUser: _listUser, isLoading: true, hasNext: _hasNext));
     try {

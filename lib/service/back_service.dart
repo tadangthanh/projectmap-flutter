@@ -117,9 +117,9 @@ void onStart(ServiceInstance service)async {
   //       },
   //       body: jsonEncode(_user?.toMap()));
   //
-  //   // await userService.test();
-  //   // service.invoke("stopService");
-  //   // service.stopSelf();
+
+  //  await userService.test();
+  // service.stopSelf();
   //   // print("Location: ${location.latitude} - ${location.longitude}");
   //   service.invoke("update");
   // });

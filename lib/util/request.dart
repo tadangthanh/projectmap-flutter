@@ -212,7 +212,7 @@ class NetworkService {
   static Future<TokenResponse> _getToken() async {
     TokenResponse? tokenResponse = await _tokenRepo.getToken();
     if (tokenResponse == null) {
-      return TokenResponse('', '');
+      return TokenResponse('', '', '');
     }
     return tokenResponse;
   }

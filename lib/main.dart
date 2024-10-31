@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map/bloc/authentication/authentication_bloc.dart';
@@ -14,6 +16,7 @@ import 'package:map/repository/token_repository.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/service/authentication_service.dart';
 import 'package:map/service/back_service.dart';
+import 'package:map/service/firebase_api.dart';
 import 'package:map/service/location_search_history_service.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/sql_service.dart';
@@ -43,6 +46,7 @@ void main() async {
       Permission.notification.request();
     }
   });
+  await Permission.ignoreBatteryOptimizations.request();
   // Kiểm tra trạng thái dịch vụ
   final service = FlutterBackgroundService();
   bool isRunning = await service.isRunning();
@@ -52,18 +56,26 @@ void main() async {
     BackendService backendService = getIt<BackendService>();
     await backendService.initializedService();
   }
-  await Workmanager().cancelAll(); // Hủy công việc trước đó nếu có
-  Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
-  Workmanager().registerPeriodicTask(
-    "1",
-    "foregroundServiceTask",
-    frequency: const Duration(minutes: 15), // Chạy mỗi giờ
-     // Chạy ngay sau khi đăng ký
-  );
+  // await Workmanager().cancelAll(); // Hủy công việc trước đó nếu có
+  // Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+  // Workmanager().registerOneOffTask(
+  //   constraints: Constraints(
+  //     networkType: NetworkType.connected,
+  //   ),
+  //   "1",
+  //   "foregroundServiceTask",
+  //   // frequency: const Duration(minutes: 15), // Chạy mỗi giờ
+  //    // Chạy ngay sau khi đăng ký
+  //   initialDelay: const Duration(seconds: 15),
+  // );
+
+  await Firebase.initializeApp();
+  // config thong bao
+  FirebaseApi().initNotification();
 
   runApp(const MyApp());
 }
-
+@pragma('vm:entry-point')
 void callbackDispatcher() {
   final getIt = GetIt.instance;
   getIt.registerLazySingleton<SqliteService>((() => SqliteService()));
@@ -77,8 +89,13 @@ void callbackDispatcher() {
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
   Workmanager().executeTask((task, inputData) async {
-    final UserService userService = getIt<UserService>();
-    await userService.test();
+    if(inputData!=null){
+      final UserService userService = getIt<UserService>();
+      await userService.updateLocationOffline();
+      await userService.test();
+    }else{
+      print("-------------------------------------------------No data");
+    }
     // Bắt đầu foreground service
     // final service = FlutterBackgroundService();
     // await service.startService();

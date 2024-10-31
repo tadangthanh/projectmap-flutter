@@ -26,11 +26,12 @@ class LoadedMapState extends MapState {
   final VehicleType? vehicleType;
   final bool isEnabledSelectLocation;
   final User? friendTapped;
+  final String style;
 
 
   LoadedMapState(this.locationData,this.markers,this.currentMapType,this.trafficEnabled,this.isFollowCamera,
       {this.googleMapController,this.place,this.directionInfo,this.isLoading=false,this.isJourneyStarted=false,this.query='',
-        this.searchByNearSelectedType,this.vehicleType,this.isEnabledSelectLocation=false,this.friendTapped});
+        this.searchByNearSelectedType,this.vehicleType,this.isEnabledSelectLocation=false,this.friendTapped,this.style=''});
 }
 class MapErrorState extends MapState {
   final String message;
