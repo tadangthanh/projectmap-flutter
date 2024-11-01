@@ -6,6 +6,8 @@ import 'package:map/bloc/friend_tab/friend_event.dart';
 import 'package:map/bloc/friend_tab/friend_state.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'common_view/loading.dart';
+
 class FriendScreen extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -47,7 +49,7 @@ class _FriendScreenState extends State<FriendScreen> {
         create: (context) => _friendBloc,
         child: BlocBuilder<FriendBloc, FriendState>(builder: (context, state) {
           if (state is LoadingFriendState) {
-            return const Center(child: CircularProgressIndicator());
+            return  loading();
           } else if (state is FriendLoaded) {
             if (!state.hasNext) {
               _scrollController.removeListener(loadMoreData);

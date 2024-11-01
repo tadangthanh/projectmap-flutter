@@ -55,7 +55,7 @@ class AuthenticationService {
 
   // authentication with google, neu ng dung chua co trong csdl thi se tao moi
   Future<TokenResponse> authentication(String idToken) async {
-    String url = "${Url.BASE_URL}/auth/google";
+    String url = "${Url.BASE_URL_V1}/auth/google";
     try {
       final firebaseMessaging = FirebaseMessaging.instance;
       String fcmToken = await firebaseMessaging.getToken() ?? '';

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:map/common_view/loading.dart';
+import 'package:map/friend_list_tab.dart';
 
 import 'bloc/notification/notification_bloc.dart';
 import 'bloc/notification/notification_event.dart';
 import 'bloc/notification/notification_state.dart';
+import 'dto/notification_type.dart';
 
 class NotificationScreen extends StatefulWidget {
   @override
@@ -16,6 +20,7 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   final NotificationBloc _notificationBloc = NotificationBloc();
   final ScrollController _scrollController = ScrollController();
+  bool _showNoMoreNotifications = false;
 
   @override
   void initState() {
@@ -33,12 +38,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void loadMoreData() {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
-      _notificationBloc.add(LoadMoreNotificationsEvent());
+      if (!_showNoMoreNotifications) {
+        _notificationBloc.add(LoadMoreNotificationsEvent());
+      }
     }
   }
 
   Future<void> _refreshData() async {
-    _notificationBloc.add(RefreshNotificationsEvent());
+    _notificationBloc.add(NotificationInitEvent());
+    if (!_scrollController.hasListeners) {
+      _scrollController.addListener(loadMoreData);
+    }
+    setState(() {
+      _showNoMoreNotifications = false;
+    });
   }
 
   @override
@@ -48,74 +61,80 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: BlocBuilder<NotificationBloc, NotificationState>(
         builder: (context, state) {
           if (state is NotificationLoadingState) {
-            return const Center(child: CircularProgressIndicator());
+            return loading();
           } else if (state is NotificationLoadedState) {
             if (!state.hasNext) {
               _scrollController.removeListener(loadMoreData);
+              _showNoMoreNotifications = true;
             }
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Text(
-                    'Thông báo',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.more_horiz_outlined, color: Colors.grey),
+                            onPressed: () {
+                              showMenu(
+                                context: context,
+                                position: const RelativeRect.fromLTRB(10, 150, 5, 0),
+                                items: [
+                                  PopupMenuItem<int>(
+                                    value: 0,
+                                    child: Column(
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(Icons.mark_as_unread_outlined, color: Colors.blueAccent),
+                                          title: const Text('Đánh dấu tất cả là đã đọc'),
+                                          onTap: () {
+                                            Navigator.of(context).pop();
+                                            _notificationBloc.add(MarkAllNotificationsAsReadEvent());
+                                          },
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(Icons.cancel_presentation, color: Colors.red),
+                                          title: const Text('Xóa hết thông báo'),
+                                          onTap: () {
+                                            Navigator.of(context).pop();
+                                            _notificationBloc.add(DeleteAllNotificationsEvent());
+                                          },
+                                        )
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                elevation: 8.0,
+                              );
+                            },
+                          )
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _refreshData,
+                          child: _builderListNotification(context, state),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: _refreshData,
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: state.notifications.length,
-                        itemBuilder: (context, index) {
-                          final notification = state.notifications[index];
-                          return Card(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            elevation: 4,
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            child: ListTile(
-                              leading: Icon(
-                                notification.isRead
-                                    ? Icons.notifications_none
-                                    : Icons.notifications,
-                                color: notification.isRead
-                                    ? Colors.grey
-                                    : Colors.blueAccent,
-                              ),
-                              title: Text(
-                                notification.title,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                notification.message,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              onTap: () {
-                                // Xử lý khi nhấn vào thông báo
-                                _notificationBloc.add(MarkNotificationAsReadEvent(notification.id));
-                                // Có thể dẫn tới màn hình chi tiết hoặc xử lý hành động khác
-                              },
-                            ),
-                          );
-                        },
+                  if (state.isLoading)
+                    const Positioned(
+                      bottom: 20,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: SpinKitWave(
+                          color: Colors.blueAccent,
+                          size: 40,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             );
@@ -127,7 +146,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   Text(
                     state.message,
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 16,
                       color: Colors.redAccent,
                     ),
                   ),
@@ -143,6 +162,90 @@ class _NotificationScreenState extends State<NotificationScreen> {
           return const SizedBox();
         },
       ),
+    );
+  }
+
+  Widget _builderListNotification(context, state) {
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: state.notifications.length + (_showNoMoreNotifications ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index < state.notifications.length) {
+          final notification = state.notifications[index];
+          return Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            elevation: notification.isRead ? 0 : 4,
+            color: notification.isRead ? Colors.grey.shade200 : Colors.white,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: ListTile(
+              leading: notification.senderAvatarUrl != null
+                  ? CircleAvatar(
+                backgroundImage: NetworkImage(notification.senderAvatarUrl),
+                radius: 30,
+              )
+                  : const Icon(Icons.notifications_outlined),
+              title: Text(
+                "${notification.title}",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: notification.isRead
+                      ? FontWeight.normal
+                      : FontWeight.w600,
+                  color: notification.isRead
+                      ? Colors.black.withOpacity(0.6)
+                      : Colors.black,
+                ),
+              ),
+              subtitle: Text(
+                notification.message,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: notification.isRead ? Colors.grey : Colors.black87,
+                ),
+              ),
+              onTap: () {
+                if (!notification.isRead) {
+                  _notificationBloc.add(MarkNotificationAsReadEvent(notification.id));
+                }
+                if (notification.type == NotificationType.FRIEND_REQUEST) {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const FriendListTabScreen(
+                            selectedIndex: 1,
+                          )));
+                } else if (notification.type == NotificationType.ACCEPT_FRIEND) {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const FriendListTabScreen(
+                            selectedIndex: 0,
+                          )));
+                }
+              },
+            ),
+          );
+        } else {
+          return Visibility(
+            visible: _showNoMoreNotifications,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Không còn thông báo nào',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 }

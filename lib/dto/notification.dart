@@ -9,6 +9,8 @@ class NotificationDto{
    String? recipientGoogleId;
    String? senderGoogleId;
    int? groupId;
+   String? senderName;
+   String? senderAvatarUrl;
 
     NotificationDto({
       required this.id,
@@ -19,6 +21,8 @@ class NotificationDto{
       this.recipientGoogleId,
       this.senderGoogleId,
       this.groupId,
+      this.senderName,
+      this.senderAvatarUrl,
     });
 
     factory NotificationDto.fromJson(Map<String, dynamic> json) {
@@ -26,11 +30,13 @@ class NotificationDto{
         id: json['id'],
         title: json['title'],
         message: json['message'],
-        isRead: json['isRead'],
-        type: NotificationType.values[json['type']],
+        isRead: json['read'], // json tra ve la read
+        type: NotificationType.values.firstWhere((e) => e.toString().split('.').last == json['type']),
         recipientGoogleId: json['recipientGoogleId'],
         senderGoogleId: json['senderGoogleId'],
         groupId: json['groupId'],
+        senderName: json['senderName'],
+        senderAvatarUrl: json['senderAvatarUrl'],
       );
     }
 
@@ -38,11 +44,13 @@ class NotificationDto{
       final Map<String, dynamic> data = new Map<String, dynamic>();
       data['title'] = this.title;
       data['message'] = this.message;
-      data['isRead'] = this.isRead;
+      data['read'] = this.isRead;
       data['type'] = this.type.index;
       data['recipientGoogleId'] = this.recipientGoogleId;
       data['senderGoogleId'] = this.senderGoogleId;
       data['groupId'] = this.groupId;
+      data['senderName'] = this.senderName;
+      data['senderAvatarUrl'] = this.senderAvatarUrl;
       return data;
     }
 }

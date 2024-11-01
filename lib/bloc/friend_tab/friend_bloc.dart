@@ -1,15 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:map/bloc/friend_tab/friend_event.dart';
 import 'package:map/bloc/friend_tab/friend_state.dart';
+import 'package:map/dto/page_response.dart';
 
 import '../../dto/user_search_response.dart';
-import '../../dto/user_search_response_page.dart';
 import '../../main.dart';
 import '../../service/user_service.dart';
 
 class FriendBloc extends Bloc<FriendEvent, FriendState> {
   final UserService _userService = getIt<UserService>();
-  late UserSearchResponsePage _pageUser;
+  late PageResponse<UserSearchResponse> _pageUser;
   late List<UserSearchResponse> _listUser;
   late bool _hasNext= false;
 

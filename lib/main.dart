@@ -4,7 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:map/bloc/authentication/authentication_bloc.dart';
@@ -16,8 +15,10 @@ import 'package:map/repository/token_repository.dart';
 import 'package:map/repository/user_repository.dart';
 import 'package:map/service/authentication_service.dart';
 import 'package:map/service/back_service.dart';
+import 'package:map/service/custome_sound_notification.dart';
 import 'package:map/service/firebase_api.dart';
 import 'package:map/service/location_search_history_service.dart';
+import 'package:map/service/notification_service.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/sql_service.dart';
 import 'package:map/service/user_service.dart';
@@ -37,6 +38,8 @@ void main() async {
   getIt.registerLazySingleton<LocationSearchHistoryRepo>((() => LocationSearchHistoryRepo()));
   getIt.registerLazySingleton<LocationSearchHistoryService>((() => LocationSearchHistoryService()));
   getIt.registerLazySingleton<TokenRepo>((() => TokenRepo()));
+  getIt.registerLazySingleton<NotificationApiService>((() => NotificationApiService()));
+  getIt.registerLazySingleton<NotificationLocalService>((() => NotificationLocalService()));
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
 

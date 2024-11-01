@@ -4,6 +4,7 @@ import 'package:map/bloc/search/search_bloc.dart';
 import 'package:map/bloc/search/search_state.dart';
 
 import '../bloc/search/search_event.dart';
+import 'loading.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -87,12 +88,12 @@ class _SearchScreenState extends State<SearchScreen> {
               return _listLocationBuilder(
                   context, state.suggestions, Icons.search);
             } else if (state is SearchLoading) {
-              return const Center(
+              return  Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(
+                      loading(),
+                      const SizedBox(
                         height: 10,
                       ),
                       Text('Đang tìm kiếm...'),

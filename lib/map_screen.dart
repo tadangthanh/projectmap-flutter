@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:map/bloc/map/map_bloc.dart';
 import 'package:map/bloc/map/map_state.dart';
 import 'package:map/bloc/search/search_bloc.dart';
+import 'package:map/common_view/loading.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/place_type.dart';
 import 'package:map/entity/travel_mode_enum.dart';
@@ -52,9 +53,7 @@ class _MapScreenState extends State<MapScreen>
       create: (context) => _mapBloc,
       child: BlocBuilder<MapBloc, MapState>(builder: (context, state) {
         if (state is LoadingMapState) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return loading();
         } else if (state is MapErrorState) {
           _alertDialog(context, state);
         } else if (state is LoadedMapState) {
@@ -106,9 +105,7 @@ class _MapScreenState extends State<MapScreen>
                   Positioned.fill(
                     child: Container(
                       color: Colors.black.withOpacity(0.5),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: loading(),
                     ),
                   ),
                 Positioned(
@@ -217,7 +214,7 @@ class _MapScreenState extends State<MapScreen>
           const SizedBox(width: 16), // Khoảng cách bên trái
           // tìm trạm xăng gần nhất
           _customButton(
-            icon: Icons.local_gas_station,
+           iconAssetUrl: 'assets/icons/icon-gas-station.png',
             label: 'Trạm xăng',
             onPressed: () {
               BlocProvider.of<MapBloc>(context).add(
@@ -228,10 +225,10 @@ class _MapScreenState extends State<MapScreen>
             isSelected: state.searchByNearSelectedType ==
                 PlaceTypes.gas_station,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           // tìm trạm sửa xe gần nhất
           _customButton(
-            icon: Icons.build,
+           iconAssetUrl: 'assets/icons/icon-fix-vehicle.png',
             label: 'Trạm sửa xe',
             onPressed: () {
               BlocProvider.of<MapBloc>(context).add(
@@ -241,9 +238,9 @@ class _MapScreenState extends State<MapScreen>
             isSelected: state.searchByNearSelectedType ==
                 PlaceTypes.car_repair,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           _customButton(
-            icon: Icons.local_grocery_store,
+          iconAssetUrl: 'assets/icons/icon-store.png',
             label: 'Tạp hóa',
             onPressed: () {
               BlocProvider.of<MapBloc>(context).add(
@@ -254,9 +251,9 @@ class _MapScreenState extends State<MapScreen>
             isSelected: state.searchByNearSelectedType ==
                 PlaceTypes.supermarket,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           _customButton(
-            icon: Icons.local_police,
+           iconAssetUrl: 'assets/icons/icon-police.png',
             label: 'Cảnh sát',
             onPressed: () {
               BlocProvider.of<MapBloc>(context).add(
@@ -266,9 +263,9 @@ class _MapScreenState extends State<MapScreen>
             isSelected: state.searchByNearSelectedType ==
                 PlaceTypes.police,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           _customButton(
-            icon: Icons.local_hospital,
+           iconAssetUrl: 'assets/icons/icon-hospital.png',
             label: 'Dịch vụ y tế',
             onPressed: () {
               BlocProvider.of<MapBloc>(context).add(
@@ -278,9 +275,9 @@ class _MapScreenState extends State<MapScreen>
             isSelected: state.searchByNearSelectedType ==
                 PlaceTypes.hospital,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
           _customButton(
-            icon: Icons.directions_bus,
+            iconAssetUrl: "assets/icons/icon-bus.png",
             label: 'Bus',
             onPressed: () {
               BlocProvider.of<MapBloc>(context).add(
@@ -390,11 +387,10 @@ class _MapScreenState extends State<MapScreen>
   }
 
   Widget _customButton({
-    required IconData icon,
+    required String iconAssetUrl,
     required String label,
     required VoidCallback onPressed,
     Color buttonColor = Colors.white,
-    Color iconColor = Colors.blue,
     Color textColor = Colors.black,
     double borderRadius = 16.0,
     bool isSelected = false,
@@ -431,15 +427,11 @@ class _MapScreenState extends State<MapScreen>
           highlightColor: Colors.transparent,
           onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: 24, // Tăng kích thước icon cho cân đối hơn
-                  color: isSelected ? Colors.white : iconColor,
-                ),
+                Image(image: AssetImage(iconAssetUrl),width: 16,),
                 const SizedBox(width: 10),
                 Text(
                   label,
@@ -1071,10 +1063,10 @@ class _MapScreenState extends State<MapScreen>
         onPressed: _togglePanel,
         backgroundColor: Colors.blue,
         child: Image.asset(
-          'assets/icons/type-map-button.png',
+          'assets/icons/icon-stack.png',
           color: Colors.white,
-          width: 25,
-          height: 25,
+          width: 30,
+          height: 30,
         ),
       ),
     );

@@ -149,11 +149,12 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     add(InitMapEvent());
   }
 
-
-  Future<void> _changeMapTheme(Emitter<MapState> emit, MapTheme mapTheme) async {
+  Future<void> _changeMapTheme(
+      Emitter<MapState> emit, MapTheme mapTheme) async {
     _style = await _loadMapStyle(mapTheme);
     _emitLoadedMapState(emit);
   }
+
   Future<void> _markerFriendTapped(Emitter<MapState> emit, User friend) async {
     _friendTapped = friend;
     _emitLoadedMapState(emit);
@@ -449,31 +450,54 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         config: StompConfig(
       url: "ws://192.168.1.242:8080/ws?token=${_tokenResponse?.accessToken}",
       onConnect: _onConnect,
-      onWebSocketError: (dynamic error) =>
-          throw Exception("error connect $error"),
+      onWebSocketError: (dynamic error) {
+        print("WebSocket Error: $error");
+        _retryConnection(); // Hàm để thực hiện kết nối lại khi gặp lỗi
+      },
+      onDisconnect: (frame) {
+        _retryConnection(); // Kết nối lại khi bị mất kết nối
+      },
     ));
     _client.activate();
   }
 
-  void _onConnect(StompFrame frame) {
-    _client.subscribe(
-        headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
-        destination: '/user/private/friend-location',
-        callback: onListenWs);
+  void _retryConnection() {
+    Future.delayed(const Duration(seconds: 5), () {
+      print("Attempting to reconnect...");
+      _client.activate(); // Kích hoạt lại client để kết nối
+    });
   }
 
-  void onListenWs(StompFrame frame)  async{
+  void _onConnect(StompFrame frame) {
+    if (_client.isActive) {
+      _client.subscribe(
+        headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+        destination: '/user/private/friend-location',
+        callback: onListenWs,
+      );
+    } else {
+      print("Cannot subscribe because connection is not active.");
+    }
+  }
+
+  void onListenWs(StompFrame frame) async {
     if (frame.body != null) {
       User userFriend = User.fromMap(jsonDecode(frame.body!));
       for (int i = 0; i < _markerUsers.length; i++) {
         if (_markerUsers[i].markerId.value == userFriend.googleId) {
-          BitmapDescriptor bitmapDescriptor = await createCustomMarkerBitmap(userFriend.name, "${_convertMsToKmh(userFriend.speed)}", "${_calculateDistance(_currentPosition.latitude!, _currentPosition.longitude!, userFriend.latitude, userFriend.longitude)}", "${userFriend.batteryLevel}","${userFriend.lastTimeOnline.hour}:${userFriend.lastTimeOnline.minute}",userFriend.avatarUrl);
+          BitmapDescriptor bitmapDescriptor = await createCustomMarkerBitmap(
+              userFriend.name,
+              "${_convertMsToKmh(userFriend.speed)}",
+              "${_calculateDistance(_currentPosition.latitude!, _currentPosition.longitude!, userFriend.latitude, userFriend.longitude)}",
+              "${userFriend.batteryLevel}",
+              "${userFriend.lastTimeOnline.hour}:${userFriend.lastTimeOnline.minute}",
+              userFriend.avatarUrl);
           _markerUsers[i] = Marker(
             markerId: MarkerId(userFriend.googleId),
             position: LatLng(userFriend.latitude, userFriend.longitude),
             infoWindow: InfoWindow(
                 title:
-                    "${userFriend.name}, speed: ${_convertMsToKmh(userFriend.speed)}km/h, distance: ${_calculateDistance(_currentPosition.latitude!, _currentPosition.longitude!, userFriend.latitude, userFriend.longitude)}m"),
+                    "${userFriend.name}, speed: ${_convertMsToKmh(userFriend.speed)}km/h, distance: ${_calculateDistance(_currentPosition.latitude!, _currentPosition.longitude!, userFriend.latitude, userFriend.longitude)}km"),
             icon: bitmapDescriptor,
           );
         }
@@ -481,7 +505,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       add(UpdateMarkersEvent()); // Kích hoạt sự kiện để cập nhật bản đồ
     }
   }
-
 
   int _convertMsToKmh(double speedMs) {
     return (speedMs * 3.6).round();
@@ -503,9 +526,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     double c = 2 * atan2(sqrt(a), sqrt(1 - a));
     double distance = earthRadius * c;
 
-    return double.parse(distance.toStringAsFixed(1)); // Trả về khoảng cách với 1 chữ số sau dấu phẩy
+    return double.parse(distance
+        .toStringAsFixed(1)); // Trả về khoảng cách với 1 chữ số sau dấu phẩy
   }
-
 
   double _degreeToRadian(double degree) {
     return degree * pi / 180;
@@ -563,7 +586,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         position: LatLng(element.latitude, element.longitude),
         infoWindow:
             InfoWindow(title: "${element.name}, speed: ${element.speed}"),
-        icon: await createCustomMarkerBitmap(element.name,"${element.speed}", "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}", "${element.batteryLevel}", "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",element.avatarUrl),
+        icon: await createCustomMarkerBitmap(
+            element.name,
+            "${element.speed}",
+            "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}",
+            "${element.batteryLevel}",
+            "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",
+            element.avatarUrl),
         onTap: () {
           // Khi người dùng nhấn vào Marker, hiển thị thông tin
           add(MarkerFriendTappedEvent(element));
@@ -647,7 +676,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         heading: bearing);
   }
 
-  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(String url) async {
+  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(
+      String url) async {
     // Tải ảnh từ URL
     if (url.isEmpty) {
       return BitmapDescriptor.fromAssetImage(
@@ -662,7 +692,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
       // Tải dữ liệu ảnh thành `ui.Image`
       final ui.Codec codec = await ui.instantiateImageCodec(imageData,
-          targetWidth: 70, targetHeight: 70); // Mở rộng kích thước để thêm hiệu ứng sáng
+          targetWidth: 70,
+          targetHeight: 70); // Mở rộng kích thước để thêm hiệu ứng sáng
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image image = frameInfo.image;
 
@@ -675,7 +706,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       final Paint glowPaint = Paint()
         ..color = Colors.blueAccent.withOpacity(0.5)
         ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15.0); // Hiệu ứng blur để tạo vòng sáng
+        ..maskFilter = const MaskFilter.blur(
+            BlurStyle.normal, 15.0); // Hiệu ứng blur để tạo vòng sáng
       canvas.drawCircle(Offset(size / 2, size / 2), size / 2, glowPaint);
 
       // Vẽ hình tròn chứa ảnh avatar
@@ -691,7 +723,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       canvas.drawImageRect(
         image,
         Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-        Rect.fromLTWH((size - 50) / 2, (size - 50) / 2, 50, 50), // Kích thước nhỏ hơn để vẽ avatar vào trong vòng sáng
+        Rect.fromLTWH((size - 50) / 2, (size - 50) / 2, 50, 50),
+        // Kích thước nhỏ hơn để vẽ avatar vào trong vòng sáng
         Paint(),
       );
 
@@ -702,7 +735,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
       // Chuyển đổi `Image` thành `ByteData`
       final ByteData? byteData =
-      await finalImage.toByteData(format: ui.ImageByteFormat.png);
+          await finalImage.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         throw Exception('Failed to convert image to ByteData');
       }
@@ -720,16 +753,20 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
   }
 
-
-  Map<String,ui.Image> _cacheImages = {};
+  Map<String, ui.Image> _cacheImages = {};
 
   Future<BitmapDescriptor> createCustomMarkerBitmap(
-      String userName, String speed, String distance, String batteryLevel, String time, String imageUrl) async {
+      String userName,
+      String speed,
+      String distance,
+      String batteryLevel,
+      String time,
+      String imageUrl) async {
     // Tải ảnh từ URL
     late ui.Image avatarImage;
-    if(_cacheImages.containsKey(imageUrl)){
+    if (_cacheImages.containsKey(imageUrl)) {
       avatarImage = _cacheImages[imageUrl]!;
-    }else{
+    } else {
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode != 200) {
         throw Exception('Failed to load user image');
@@ -755,7 +792,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // Vẽ nền cho marker (hình chữ nhật bo tròn)
     final Paint backgroundPaint = Paint()..color = Colors.blueAccent;
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, width, 150), Radius.circular(20)),
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, width, 150), Radius.circular(20)),
       backgroundPaint,
     );
 
@@ -775,16 +813,24 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
     // Vẽ nền tròn cho avatar
     final Paint avatarBackgroundPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(avatarOffset + avatarRadius, avatarOffset + avatarRadius), avatarRadius, avatarBackgroundPaint);
+    canvas.drawCircle(
+        Offset(avatarOffset + avatarRadius, avatarOffset + avatarRadius),
+        avatarRadius,
+        avatarBackgroundPaint);
 
     // Vẽ avatar
     canvas.save();
     canvas.clipPath(Path()
-      ..addOval(Rect.fromCircle(center: Offset(avatarOffset + avatarRadius, avatarOffset + avatarRadius), radius: avatarRadius)));
+      ..addOval(Rect.fromCircle(
+          center:
+              Offset(avatarOffset + avatarRadius, avatarOffset + avatarRadius),
+          radius: avatarRadius)));
     canvas.drawImageRect(
       avatarImage,
-      Rect.fromLTWH(0, 0, avatarImage.width.toDouble(), avatarImage.height.toDouble()),
-      Rect.fromLTWH(avatarOffset, avatarOffset, avatarRadius * 2, avatarRadius * 2),
+      Rect.fromLTWH(
+          0, 0, avatarImage.width.toDouble(), avatarImage.height.toDouble()),
+      Rect.fromLTWH(
+          avatarOffset, avatarOffset, avatarRadius * 2, avatarRadius * 2),
       Paint(),
     );
     canvas.restore();
@@ -793,7 +839,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     final TextPainter userNameTextPainter = TextPainter(
       text: TextSpan(
         text: userName,
-        style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
     );
@@ -845,7 +892,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // Vẽ nền màu trắng cho phần pin và thời gian
     final Paint batteryTimeBackgroundPaint = Paint()..color = Colors.white;
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(10, 160, width - 20, 50), Radius.circular(15)),
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(10, 160, width - 20, 50), Radius.circular(15)),
       batteryTimeBackgroundPaint,
     );
 
@@ -853,7 +901,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     final TextPainter batteryTimeTextPainter = TextPainter(
       text: TextSpan(
         text: "🔋 $batteryLevel %   🕒 $time", // Hiển thị icon pin và thời gian
-        style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+        style: TextStyle(
+            color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
     );
@@ -866,7 +915,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         .toImage(width.toInt(), height.toInt());
 
     // Chuyển đổi `Image` thành `ByteData`
-    final ByteData? byteData = await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? byteData =
+        await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) {
       throw Exception('Failed to convert marker to ByteData');
     }
@@ -875,10 +925,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     final Uint8List imageDataFinal = byteData.buffer.asUint8List();
 
     // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
-    return BitmapDescriptor.bytes(imageDataFinal, width: 150, height: 90, imagePixelRatio: 3.0);
+    return BitmapDescriptor.bytes(imageDataFinal,
+        width: 150, height: 90, imagePixelRatio: 3.0);
   }
-
-
 
   Future<AssetMapBitmap> _customMarker(String urlAsset) {
     return BitmapDescriptor.asset(

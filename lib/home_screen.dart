@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:map/bloc/home/home_bloc.dart';
+import 'package:map/bloc/home/home_state.dart';
+import 'package:map/common_view/loading.dart';
 import 'package:map/notification_screen.dart';
 import 'package:map/search.dart';
 
@@ -29,12 +33,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // final HomeBloc _homeBloc = HomeBloc();
   int _selectedIndex = 0;
 
   // Danh sách các widget đại diện cho các trang khác nhau
   static final List<Widget> _widgetOptions = <Widget>[
-    MapScreen(),
-    FriendListTabScreen(),
+    const MapScreen(),
+    const FriendListTabScreen(),
     NotificationScreen(),
     SearchScreen(),
   ];
@@ -48,25 +53,110 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: Colors.white),
+      appBar: _appBarBuilder(),
+      body: IndexedStack(
+        index: _selectedIndex, // Chỉ hiển thị widget tại vị trí _selectedIndex
+        children: _widgetOptions, // Các trang
+      ),
+      bottomNavigationBar: _buildBottomNavigatorBar(),
+    );
+  }
+
+  Widget _buildBottomNavigatorBar() {
+    return BottomNavigationBar(
+      items: const <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Image(image: AssetImage('assets/icons/icon-map-navigator.png',),width: 26,),
+          label: 'Bản đồ',
+        ),
+        BottomNavigationBarItem(
+          icon: Image(image: AssetImage('assets/icons/icon-friend-navigator.png',),width: 26,),
+          label: 'Bạn bè',
+        ),
+        BottomNavigationBarItem(
+          icon: Image(image: AssetImage('assets/icons/icon-notification-navigator.png',),width: 26,),
+          label: 'Thông báo',
+        ),
+        BottomNavigationBarItem(
+          icon: Image(image: AssetImage('assets/icons/icon-search-navigator.png',),width: 26,),
+          label: 'Tìm kiếm',
+        ),
+      ],
+      currentIndex: _selectedIndex,
+      selectedItemColor: Colors.blue,
+      unselectedItemColor: Colors.grey,
+      selectedFontSize: 14,
+      unselectedFontSize: 12,
+      type: BottomNavigationBarType.fixed,
+      onTap: _onItemTapped,
+      showUnselectedLabels: true,
+    );
+  }
+
+  PreferredSizeWidget? _appBarBuilder() {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.menu, color: Colors.white),
+        onPressed: () {
+          showMenu(
+            context: context,
+            position: const RelativeRect.fromLTRB(0, 80, 0, 0),
+            items: [
+              const PopupMenuItem<int>(
+                value: 0,
+                child: Text('Trang chủ'),
+              ),
+              const PopupMenuItem<int>(
+                value: 1,
+                child: Text('Hồ sơ cá nhân'),
+              ),
+              const PopupMenuItem<int>(
+                value: 2,
+                child: Text('Cài đặt'),
+              ),
+            ],
+            elevation: 8.0,
+          );
+        },
+      ),
+      title: Text(
+        _getTitle(),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+      // centerTitle: true,
+      backgroundColor: Colors.blueAccent,
+      elevation: 4,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.lightBlueAccent, Colors.blueAccent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings, color: Colors.white),
           onPressed: () {
             showMenu(
               context: context,
-              position: RelativeRect.fromLTRB(0, 80, 0, 0),
+              position: const RelativeRect.fromLTRB(1000, 80, 0, 0),
               items: [
-                PopupMenuItem<int>(
+                const PopupMenuItem<int>(
                   value: 0,
-                  child: Text('Trang chủ'),
+                  child: Text('Cài đặt chung'),
                 ),
-                PopupMenuItem<int>(
+                const PopupMenuItem<int>(
                   value: 1,
-                  child: Text('Hồ sơ cá nhân'),
+                  child: Text('Thông tin ứng dụng'),
                 ),
-                PopupMenuItem<int>(
+                const PopupMenuItem<int>(
                   value: 2,
-                  child: Text('Cài đặt'),
+                  child: Text('Đăng xuất'),
                 ),
               ],
               elevation: 8.0,
@@ -74,136 +164,20 @@ class _HomePageState extends State<HomePage> {
               if (value != null) {
                 switch (value) {
                   case 0:
-                  // Xử lý khi chọn Trang chủ
+                  // Xử lý khi chọn Cài đặt chung
                     break;
                   case 1:
-                  // Xử lý khi chọn Hồ sơ cá nhân
+                  // Xử lý khi chọn Thông tin ứng dụng
                     break;
                   case 2:
-                  // Xử lý khi chọn Cài đặt
+                  // Xử lý khi chọn Đăng xuất
                     break;
                 }
               }
             });
           },
         ),
-        title: Text(
-          _getTitle(),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.blueAccent,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.lightBlueAccent, Colors.blueAccent],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        actions: [
-          if (_selectedIndex == 2)
-            IconButton(
-              icon: const Icon(Icons.more_horiz_outlined, color: Colors.white),
-              onPressed: () {
-                showMenu(
-                  context: context,
-                  position: RelativeRect.fromLTRB(1000, 80, 0, 0),
-                  items: [
-                    const PopupMenuItem<int>(
-                      value: 0,
-                      child: Text('Đánh dấu tất cả là đã đọc'),
-                    ),
-                  ],
-                  elevation: 8.0,
-                ).then((value) {
-                  if (value != null) {
-                    switch (value) {
-                      case 0:
-                      // Xử lý khi chọn Đánh dấu tất cả là đã đọc
-                        break;
-                    }
-                  }
-                });
-              },
-            ),
-          IconButton(
-            icon: Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              showMenu(
-                context: context,
-                position: RelativeRect.fromLTRB(1000, 80, 0, 0),
-                items: [
-                  const PopupMenuItem<int>(
-                    value: 0,
-                    child: Text('Cài đặt chung'),
-                  ),
-                  const PopupMenuItem<int>(
-                    value: 1,
-                    child: Text('Thông tin ứng dụng'),
-                  ),
-                  const PopupMenuItem<int>(
-                    value: 2,
-                    child: Text('Đăng xuất'),
-                  ),
-                ],
-                elevation: 8.0,
-              ).then((value) {
-                if (value != null) {
-                  switch (value) {
-                    case 0:
-                    // Xử lý khi chọn Cài đặt chung
-                      break;
-                    case 1:
-                    // Xử lý khi chọn Thông tin ứng dụng
-                      break;
-                    case 2:
-                    // Xử lý khi chọn Đăng xuất
-                      break;
-                  }
-                }
-              });
-            },
-          ),
-        ],
-      ),
-      body: IndexedStack(
-        index: _selectedIndex, // Chỉ hiển thị widget tại vị trí _selectedIndex
-        children: _widgetOptions, // Các trang
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Bản đồ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Bạn bè',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Thông báo',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Tìm kiếm',
-          ),
-        ],
-        currentIndex: _selectedIndex, // Mục đã chọn hiện tại
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        selectedFontSize: 14,
-        unselectedFontSize: 12,
-        type: BottomNavigationBarType.fixed,
-        onTap: _onItemTapped,
-        showUnselectedLabels: true,
-      ),
+      ],
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:map/bloc/user_search/user_search_bloc.dart';
+import 'package:map/common_view/loading.dart';
 import 'package:map/dto/relation_ship_role.dart';
 
 import 'bloc/user_search/user_search_event.dart';
@@ -30,7 +31,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final UserSearchBloc _userSearchBloc = UserSearchBloc();
 
   @override
@@ -43,16 +44,10 @@ class _SearchScreenState extends State<SearchScreen> {
               .unfocus(); // Ẩn bàn phím khi nhấn vào chỗ trống
         },
         child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Tìm kiếm bạn bè'),
-            centerTitle: true,
-          ),
           body: BlocBuilder<UserSearchBloc, UserSearchState>(
               builder: (context, state) {
             if (state is LoadingUserSearchState) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return loading();
             } else if (state is ErrorUserSearchState) {
               return Center(
                 child: AlertDialog(

@@ -9,7 +9,7 @@ import 'package:map/util/url.dart';
 
 class NetworkService {
   static final TokenRepo _tokenRepo = getIt<TokenRepo>();
-  static const String _baseUrl = Url.BASE_URL;
+  static const String _baseUrl = Url.BASE_URL_V1;
 
   static Future<dynamic> refreshToken() async {
     TokenResponse tokenResponse = await _getToken();

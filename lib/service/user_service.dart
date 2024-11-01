@@ -1,6 +1,6 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:map/dto/page_response.dart';
 import 'package:map/dto/user_search_response.dart';
-import 'package:map/dto/user_search_response_page.dart';
 import 'package:map/entity/user.dart';
 import 'package:map/main.dart';
 import 'package:map/repository/user_repository.dart';
@@ -29,7 +29,7 @@ class UserService {
   // send to backend to save user
 
   Future<User> createUser(User user) async {
-    String url = "${Url.BASE_URL}/users";
+    String url = "${Url.BASE_URL_V1}/users";
     try {
       User createdUser = User.fromMap(await NetworkService.post(url: url, body: user.toMap(), headers: {'Content-Type': 'application/json'}));
       return createdUser;
@@ -40,7 +40,7 @@ class UserService {
   }
 
   Future<UserSearchResponse> findByEmail(String email) async {
-    String url = "${Url.BASE_URL}/users/email/$email";
+    String url = "${Url.BASE_URL_V1}/users/email/$email";
     try {
       UserSearchResponse user = UserSearchResponse.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
       return user;
@@ -48,17 +48,17 @@ class UserService {
       throw Exception(e.toString());
     }
   }
-  Future<UserSearchResponsePage> getFriendPendingAccept({int page = 0, int size = 10}) async{
-    String url = "${Url.BASE_URL}/users/friends/pending/accept?page=$page&size=$size";
+  Future<PageResponse<UserSearchResponse>> getFriendPendingAccept({int page = 0, int size = 10}) async{
+    String url = "${Url.BASE_URL_V1}/users/friends/pending/accept?page=$page&size=$size";
     try {
-      UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
+      PageResponse<UserSearchResponse> userSearchResponsePage = PageResponse.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}),(item)=>UserSearchResponse.fromMap(item));
       return userSearchResponsePage;
     } catch (e) {
       throw Exception(e.toString());
     }
   }
   Future<List<User>> getAllFriends() async{
-    String url = "${Url.BASE_URL}/users/friends/all";
+    String url = "${Url.BASE_URL_V1}/users/friends/all";
     try {
       List<User> users = User.fromListJson(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
       return users;
@@ -66,10 +66,10 @@ class UserService {
       throw Exception(e.toString());
     }
   }
-  Future<UserSearchResponsePage> getFriends({int page = 0, int size = 10}) async{
-    String url = "${Url.BASE_URL}/users/friends?page=$page&size=$size";
+  Future<PageResponse<UserSearchResponse>> getFriends({int page = 0, int size = 10}) async{
+    String url = "${Url.BASE_URL_V1}/users/friends?page=$page&size=$size";
     try {
-      UserSearchResponsePage userSearchResponsePage = UserSearchResponsePage.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}));
+      PageResponse<UserSearchResponse> userSearchResponsePage = PageResponse.fromMap(await NetworkService.get(url: url, headers: {'Content-Type': 'application/json'}),(item)=>UserSearchResponse.fromMap(item));
       return userSearchResponsePage;
     } catch (e) {
       throw Exception(e.toString());
@@ -77,7 +77,7 @@ class UserService {
   }
 
   Future<UserSearchResponse> addFriend(String email) async{
-    String url = "${Url.BASE_URL}/users/add";
+    String url = "${Url.BASE_URL_V1}/users/add";
     try {
       UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.post(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
       return userSearchResponse;
@@ -86,7 +86,7 @@ class UserService {
     }
   }
   Future<UserSearchResponse> unRequestAddFriend(String email) async{
-    String url = "${Url.BASE_URL}/users/cancel";
+    String url = "${Url.BASE_URL_V1}/users/cancel";
     try {
       UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.delete(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
       return userSearchResponse;
@@ -95,7 +95,7 @@ class UserService {
     }
   }
   Future<UserSearchResponse> rejectRequestAddFriend(String email) async{
-    String url = "${Url.BASE_URL}/users/reject";
+    String url = "${Url.BASE_URL_V1}/users/reject";
     try {
       UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.delete(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
       return userSearchResponse;
@@ -104,7 +104,7 @@ class UserService {
     }
   }
   Future<UserSearchResponse> acceptFriend(String email) async{
-    String url = "${Url.BASE_URL}/users/accept";
+    String url = "${Url.BASE_URL_V1}/users/accept";
     try {
       UserSearchResponse userSearchResponse = UserSearchResponse.fromMap(await NetworkService.post(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'}));
       return userSearchResponse;
@@ -114,9 +114,8 @@ class UserService {
   }
 
   Future<void> updateLocationOffline() async {
-    String url = "${Url.BASE_URL}/users/update/location/offline";
+    String url = "${Url.BASE_URL_V1}/users/update/location/offline";
     Position location = await Geolocator.getCurrentPosition();
-    print('-----------------------------------------------------------updateLocationOffline');
     User? user = await getUser();
     if(user!=null){
       user.latitude = location.latitude;
@@ -131,7 +130,7 @@ class UserService {
     }
   }
   Future<void> test() async {
-    String url = "${Url.BASE_URL}/users/test";
+    String url = "${Url.BASE_URL_V1}/users/test";
     try {
       await NetworkService.post(url: url, body: {}, headers: {});
     } catch (e) {
@@ -140,7 +139,7 @@ class UserService {
   }
 
   Future<void> unFriend(String email) async {
-    String url = "${Url.BASE_URL}/users/unfriend";
+    String url = "${Url.BASE_URL_V1}/users/unfriend";
     try {
       await NetworkService.delete(url: url, body: {'email': email}, headers: {'Content-Type': 'application/json'});
     } catch (e) {

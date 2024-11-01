@@ -5,7 +5,8 @@ class NotificationLoadingState extends NotificationState{}
 class NotificationLoadedState extends NotificationState{
   final bool hasNext;
   final List<NotificationDto> notifications;
-  NotificationLoadedState(this.hasNext, this.notifications);
+  final bool isLoading;
+  NotificationLoadedState({required this.notifications, required this.hasNext, required this.isLoading});
 }
 class NotificationErrorState extends NotificationState{
   final String message;

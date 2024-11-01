@@ -4,16 +4,18 @@ import 'friends_screen.dart';
 import 'friend_request_tab_screen.dart';
 
 class FriendListTabScreen extends StatelessWidget {
+  final int selectedIndex;
+
+  const FriendListTabScreen({this.selectedIndex = 0});
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
+      initialIndex: selectedIndex,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Bạn bè', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          bottom: const PreferredSize(
+          title: const PreferredSize(
             preferredSize: Size.fromHeight(50),
             child: TabBar(
               labelColor: Colors.blueAccent,
@@ -21,11 +23,13 @@ class FriendListTabScreen extends StatelessWidget {
               indicatorColor: Colors.blueAccent,
               indicatorWeight: 3,
               tabs: [
-                Tab(text: 'Danh sách bạn bè'),
+                Tab(text: 'Bạn bè'),
                 Tab(text: 'Lời mời kết bạn'),
               ],
             ),
           ),
+          backgroundColor: Colors.white,
+          elevation: 0,
         ),
         body: TabBarView(
           children: [
