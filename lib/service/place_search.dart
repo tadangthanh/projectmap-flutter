@@ -125,18 +125,21 @@ class PlaceSearch {
     // Kiểm tra phản hồi
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final routes = data['routes'];
 
+      //routes chua danh duration, distanceMeters, polyline
+      final routes = data['routes'];
       // Chuyển đổi dữ liệu JSON thành danh sách các route
       Set<RouteResponse> routeResponses = routes
           .map<RouteResponse>((route) => RouteResponse.fromJson(route))
           .toSet();
 
-      List<String> distances = [];
-      List<String> durations = [];
+     Map<Color,String> distance = {};
+      Map<Color,String> duration = {};
       int index=0;
       for (var result in routeResponses) {
+        //tọa độ của tuyến đường
         List<LatLng> polylineCoordinates = [];  // Tạo mới mỗi khi tạo một tuyến mới
+        // giải mã chuỗi polyline thành danh sách các tọa độ point
         List<PointLatLng> avl =
         polylinePoints.decodePolyline(result.polyline.encodedPolyline);
 
@@ -154,13 +157,14 @@ class PlaceSearch {
           width: 10,
         );
         polylines.add(polyline);
+        distance[polyline.color] = result.distanceMeters.toString();
+        duration[polyline.color] = result.duration;
+
         // Thêm khoảng cách và thời gian
-        distances.add('${result.distanceMeters} meters');
-        durations.add('${result.duration} seconds');
       }
       // Trả về DirectionInfo chứa polyline, distance và duration
       return DirectionInfo(
-          polyline: polylines, distance: distances, duration: durations);
+          polyline: polylines, distance: distance, duration: duration);
     } else {
       // Xử lý lỗi khi không nhận được phản hồi thành công từ API
       throw Exception('Failed to load routes: ${response.body}');

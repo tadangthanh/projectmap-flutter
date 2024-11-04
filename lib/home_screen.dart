@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:map/bloc/home/home_bloc.dart';
-import 'package:map/bloc/home/home_state.dart';
-import 'package:map/common_view/loading.dart';
+import 'package:map/generated/assets.dart';
+import 'package:map/group_screen.dart';
 import 'package:map/notification_screen.dart';
 import 'package:map/search.dart';
+import 'package:motion_tab_bar/MotionTabBarController.dart';
 
 import 'friend_list_tab.dart';
 import 'map_screen.dart';
@@ -13,7 +12,7 @@ void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatelessWidget  {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -23,19 +22,21 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: HomePage(),
+
     );
   }
 }
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatefulWidget  {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   // final HomeBloc _homeBloc = HomeBloc();
   int _selectedIndex = 0;
-
+  // TabController _tabController;
+ late MotionTabBarController _motionTabBarController;
   // Danh sách các widget đại diện cho các trang khác nhau
   static final List<Widget> _widgetOptions = <Widget>[
     const MapScreen(),
@@ -44,6 +45,22 @@ class _HomePageState extends State<HomePage> {
     SearchScreen(),
   ];
 
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _motionTabBarController = MotionTabBarController(
+      initialIndex: 1,
+      length: 4,
+      vsync: this,
+    );
+  }
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    _motionTabBarController.dispose();
+  }
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index; // Cập nhật trạng thái khi một mục được chọn
@@ -53,32 +70,114 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _appBarBuilder(),
+      appBar: _appBarBuilder(context),
       body: IndexedStack(
         index: _selectedIndex, // Chỉ hiển thị widget tại vị trí _selectedIndex
         children: _widgetOptions, // Các trang
       ),
       bottomNavigationBar: _buildBottomNavigatorBar(),
+      drawer: _drawerBuilder(context),
     );
   }
+Widget _drawerBuilder(context){
+    return Drawer(
+      child: Column(
+        children: <Widget>[
+          const UserAccountsDrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.lightBlueAccent, Colors.blueAccent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            accountName: Text(
+              'User Name',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            accountEmail: Text('user@example.com'),
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Text(
+                'U',
+                style: TextStyle(fontSize: 40.0, color: Colors.blueAccent),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Image(
+              image: AssetImage(Assets.iconsIconGroup),
+              width: 26,
+            ),
+            title: const Text('Nhóm'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => GroupListScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined, color: Colors.blueAccent),
+            title: const Text('Cài đặt'),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: const Text('Đăng xuất',
+                style: TextStyle(color: Colors.redAccent)),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+}
+
+
 
   Widget _buildBottomNavigatorBar() {
     return BottomNavigationBar(
       items: const <BottomNavigationBarItem>[
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-map-navigator.png',),width: 26,),
+          icon: Image(
+            image: AssetImage(
+              'assets/icons/icon-map-navigator.png',
+            ),
+            width: 26,
+          ),
           label: 'Bản đồ',
         ),
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-friend-navigator.png',),width: 26,),
+          icon: Image(
+            image: AssetImage(
+              'assets/icons/icon-friend-navigator.png',
+            ),
+            width: 26,
+          ),
           label: 'Bạn bè',
         ),
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-notification-navigator.png',),width: 26,),
+          icon: Image(
+            image: AssetImage(
+              'assets/icons/icon-notification-navigator.png',
+            ),
+            width: 26,
+          ),
           label: 'Thông báo',
         ),
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-search-navigator.png',),width: 26,),
+          icon: Image(
+            image: AssetImage(
+              'assets/icons/icon-search-navigator.png',
+            ),
+            width: 26,
+          ),
           label: 'Tìm kiếm',
         ),
       ],
@@ -93,32 +192,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  PreferredSizeWidget? _appBarBuilder() {
+  PreferredSizeWidget? _appBarBuilder(context) {
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.menu, color: Colors.white),
-        onPressed: () {
-          showMenu(
-            context: context,
-            position: const RelativeRect.fromLTRB(0, 80, 0, 0),
-            items: [
-              const PopupMenuItem<int>(
-                value: 0,
-                child: Text('Trang chủ'),
-              ),
-              const PopupMenuItem<int>(
-                value: 1,
-                child: Text('Hồ sơ cá nhân'),
-              ),
-              const PopupMenuItem<int>(
-                value: 2,
-                child: Text('Cài đặt'),
-              ),
-            ],
-            elevation: 8.0,
-          );
-        },
-      ),
+      leading: Builder(builder: (context) {
+        return IconButton(
+          icon: const Icon(
+            Icons.menu,
+            color: Colors.white,
+            size: 30,
+          ),
+          onPressed: () {
+            Scaffold.of(context).openDrawer();
+          },
+        );
+      }),
       title: Text(
         _getTitle(),
         style: const TextStyle(
@@ -164,13 +251,13 @@ class _HomePageState extends State<HomePage> {
               if (value != null) {
                 switch (value) {
                   case 0:
-                  // Xử lý khi chọn Cài đặt chung
+                    // Xử lý khi chọn Cài đặt chung
                     break;
                   case 1:
-                  // Xử lý khi chọn Thông tin ứng dụng
+                    // Xử lý khi chọn Thông tin ứng dụng
                     break;
                   case 2:
-                  // Xử lý khi chọn Đăng xuất
+                    // Xử lý khi chọn Đăng xuất
                     break;
                 }
               }
