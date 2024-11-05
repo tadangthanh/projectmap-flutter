@@ -61,7 +61,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late VehicleType _vehicleType = VehicleType.TWO_WHEELER;
   late bool _isEnabledSelectLocation = false;
   late String _style = "";
-
+  List<LatLng> visitedCoordinates = [];  // Các điểm đã đi qua
+  List<LatLng> polylineCoordinates = []; // Các điểm polyline
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
       await _init(emit);
@@ -379,6 +380,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           .getPolylinePoints(origin, destination, mode: vehicleType);
       _directionInfo = directionInfo;
       _isLoading = false;
+      polylineCoordinates.addAll(_directionInfo?.polyline.first.points ?? []);
       _emitLoadedMapState(emit);
       _zoomToFit(origin, destination);
       return;
@@ -416,6 +418,39 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       add(LocationChangedEvent(currentLocation));
     });
   }
+  void _updatePolylineColor(LatLng currentLatLng) {
+    visitedCoordinates.add(currentLatLng);
+
+    // Xóa polyline cũ
+    _directionInfo?.polyline.clear();
+
+    // Tạo polyline đã đi qua màu xám
+    _directionInfo?.polyline.add(Polyline(
+      polylineId: const PolylineId("visited_routes"),
+      color: Colors.red,
+      points: visitedCoordinates,
+      width: 10,
+    ));
+
+    // Tạo polyline chưa đi qua màu xanh
+    List<LatLng> remainingCoordinates = polylineCoordinates.skip(visitedCoordinates.length).toList();
+    _directionInfo?.polyline.add(Polyline(
+      polylineId: const PolylineId("remaining_route"),
+      color: Colors.blue,
+      points: remainingCoordinates,
+      width: 5,
+      onTap: () {
+        // Hiển thị thông tin khi người dùng nhấn vào polyline
+        add(MarkerTappedEvent(_place!));
+      },
+      consumeTapEvents: true
+    ));
+
+    // // Giữ nguyên các tuyến đường phụ (nếu có)
+    // if (_directionInfo?.additionalPolylines != null) {
+    //   _directionInfo?.polyline.addAll(_directionInfo!.additionalPolylines);
+    // }
+  }
 
   Future<void> _updateUserLocation(LocationData currentLocation) async {
     _currentPosition = currentLocation; // Cập nhật vị trí hiện tại
@@ -429,6 +464,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
+    _updatePolylineColor(LatLng(currentLocation.latitude!, currentLocation.longitude!));
     Battery _battery = Battery();
     // Cập nhật vị trí của người dùng
     _user.longitude = currentLocation.longitude!;

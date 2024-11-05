@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:map/chat_screen.dart';
 import 'package:map/generated/assets.dart';
 import 'package:map/group_screen.dart';
 import 'package:map/notification_screen.dart';
 import 'package:map/search.dart';
-import 'package:motion_tab_bar/MotionTabBarController.dart';
 
 import 'friend_list_tab.dart';
 import 'map_screen.dart';
@@ -12,7 +12,7 @@ void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget  {
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -22,45 +22,28 @@ class MyApp extends StatelessWidget  {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: HomePage(),
-
     );
   }
 }
 
-class HomePage extends StatefulWidget  {
+class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // final HomeBloc _homeBloc = HomeBloc();
   int _selectedIndex = 0;
-  // TabController _tabController;
- late MotionTabBarController _motionTabBarController;
+
   // Danh sách các widget đại diện cho các trang khác nhau
   static final List<Widget> _widgetOptions = <Widget>[
     const MapScreen(),
     const FriendListTabScreen(),
+     ChatScreen(),
     NotificationScreen(),
     SearchScreen(),
   ];
 
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-    _motionTabBarController = MotionTabBarController(
-      initialIndex: 1,
-      length: 4,
-      vsync: this,
-    );
-  }
-  @override
-  void dispose() {
-    // TODO: implement dispose
-    super.dispose();
-    _motionTabBarController.dispose();
-  }
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index; // Cập nhật trạng thái khi một mục được chọn
@@ -79,7 +62,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       drawer: _drawerBuilder(context),
     );
   }
-Widget _drawerBuilder(context){
+
+  Widget _drawerBuilder(context) {
     return Drawer(
       child: Column(
         children: <Widget>[
@@ -112,14 +96,13 @@ Widget _drawerBuilder(context){
             title: const Text('Nhóm'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => GroupListScreen()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => GroupListScreen()));
             },
           ),
           ListTile(
-            leading: const Icon(Icons.settings_outlined, color: Colors.blueAccent),
+            leading:
+                const Icon(Icons.settings_outlined, color: Colors.blueAccent),
             title: const Text('Cài đặt'),
             onTap: () {
               Navigator.pop(context);
@@ -137,60 +120,49 @@ Widget _drawerBuilder(context){
         ],
       ),
     );
-}
-
-
+  }
 
   Widget _buildBottomNavigatorBar() {
     return BottomNavigationBar(
       items: const <BottomNavigationBarItem>[
         BottomNavigationBarItem(
-          icon: Image(
-            image: AssetImage(
-              'assets/icons/icon-map-navigator.png',
-            ),
-            width: 26,
-          ),
-          label: 'Bản đồ',
+          icon: Icon(Icons.map_outlined),
+          activeIcon: Icon(Icons.map),
+          label: 'FMap',
         ),
         BottomNavigationBarItem(
-          icon: Image(
-            image: AssetImage(
-              'assets/icons/icon-friend-navigator.png',
-            ),
-            width: 26,
-          ),
+          icon: Icon(Icons.group_outlined),
+          activeIcon: Icon(Icons.group),
           label: 'Bạn bè',
         ),
         BottomNavigationBarItem(
-          icon: Image(
-            image: AssetImage(
-              'assets/icons/icon-notification-navigator.png',
-            ),
-            width: 26,
-          ),
+          icon: Icon(Icons.chat_outlined),
+          activeIcon: Icon(Icons.chat),
+          label: 'Nhắn tin',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.notifications_outlined),
+          activeIcon: Icon(Icons.notifications),
           label: 'Thông báo',
         ),
         BottomNavigationBarItem(
-          icon: Image(
-            image: AssetImage(
-              'assets/icons/icon-search-navigator.png',
-            ),
-            width: 26,
-          ),
+          icon: Icon(Icons.search_outlined),
+          activeIcon: Icon(Icons.search),
           label: 'Tìm kiếm',
         ),
       ],
       currentIndex: _selectedIndex,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
-      selectedFontSize: 14,
-      unselectedFontSize: 12,
+      selectedItemColor: Colors.purple,
+      unselectedItemColor: Colors.grey[400],
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+      unselectedLabelStyle: const TextStyle(fontSize: 12),
+      backgroundColor: Colors.white,
       type: BottomNavigationBarType.fixed,
       onTap: _onItemTapped,
       showUnselectedLabels: true,
     );
   }
+
 
   PreferredSizeWidget? _appBarBuilder(context) {
     return AppBar(
@@ -271,15 +243,17 @@ Widget _drawerBuilder(context){
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
-        return 'Bản đồ';
+        return 'FMap';
       case 1:
         return 'Bạn bè';
       case 2:
-        return 'Thông báo';
+        return 'Nhắn tin';
       case 3:
+        return 'Thông báo';
+      case 4:
         return 'Tìm kiếm';
       default:
-        return 'Ứng dụng';
+        return 'FMap';
     }
   }
 }

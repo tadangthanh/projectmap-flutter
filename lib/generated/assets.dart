@@ -74,6 +74,7 @@ class Assets {
   static const String iconsTypeMapButton = 'assets/icons/type-map-button.png';
   static const String iconsUserLocation = 'assets/icons/user-location.png';
   static const String iconsVietnamLocation = 'assets/icons/vietnam-location.png';
+  static const String libChatScreen = 'lib/chat_screen.dart';
   static const String libFriendListTab = 'lib/friend_list_tab.dart';
   static const String libFriendRequestTabScreen = 'lib/friend_request_tab_screen.dart';
   static const String libFriendsScreen = 'lib/friends_screen.dart';
