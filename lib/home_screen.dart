@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:map/bloc/home/home_bloc.dart';
-import 'package:map/bloc/home/home_state.dart';
-import 'package:map/common_view/loading.dart';
+import 'package:map/chat_screen.dart';
+import 'package:map/generated/assets.dart';
+import 'package:map/group_screen.dart';
 import 'package:map/notification_screen.dart';
 import 'package:map/search.dart';
 
@@ -32,7 +31,7 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // final HomeBloc _homeBloc = HomeBloc();
   int _selectedIndex = 0;
 
@@ -53,12 +52,72 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _appBarBuilder(),
+      appBar: _appBarBuilder(context),
       body: IndexedStack(
         index: _selectedIndex, // Chỉ hiển thị widget tại vị trí _selectedIndex
         children: _widgetOptions, // Các trang
       ),
       bottomNavigationBar: _buildBottomNavigatorBar(),
+      drawer: _drawerBuilder(context),
+    );
+  }
+
+  Widget _drawerBuilder(context) {
+    return Drawer(
+      child: Column(
+        children: <Widget>[
+          const UserAccountsDrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.lightBlueAccent, Colors.blueAccent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            accountName: Text(
+              'User Name',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            accountEmail: Text('user@example.com'),
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Text(
+                'U',
+                style: TextStyle(fontSize: 40.0, color: Colors.blueAccent),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Image(
+              image: AssetImage(Assets.iconsIconGroup),
+              width: 26,
+            ),
+            title: const Text('Nhóm'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => GroupListScreen()));
+            },
+          ),
+          ListTile(
+            leading:
+                const Icon(Icons.settings_outlined, color: Colors.blueAccent),
+            title: const Text('Cài đặt'),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: const Text('Đăng xuất',
+                style: TextStyle(color: Colors.redAccent)),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -66,59 +125,53 @@ class _HomePageState extends State<HomePage> {
     return BottomNavigationBar(
       items: const <BottomNavigationBarItem>[
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-map-navigator.png',),width: 26,),
-          label: 'Bản đồ',
+          icon: Icon(Icons.map_outlined),
+          activeIcon: Icon(Icons.map),
+          label: 'FMap',
         ),
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-friend-navigator.png',),width: 26,),
+          icon: Icon(Icons.group_outlined),
+          activeIcon: Icon(Icons.group),
           label: 'Bạn bè',
         ),
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-notification-navigator.png',),width: 26,),
+          icon: Icon(Icons.notifications_outlined),
+          activeIcon: Icon(Icons.notifications),
           label: 'Thông báo',
         ),
         BottomNavigationBarItem(
-          icon: Image(image: AssetImage('assets/icons/icon-search-navigator.png',),width: 26,),
+          icon: Icon(Icons.search_outlined),
+          activeIcon: Icon(Icons.search),
           label: 'Tìm kiếm',
         ),
       ],
       currentIndex: _selectedIndex,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
-      selectedFontSize: 14,
-      unselectedFontSize: 12,
+      selectedItemColor: Colors.purple,
+      unselectedItemColor: Colors.grey[400],
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+      unselectedLabelStyle: const TextStyle(fontSize: 12),
+      backgroundColor: Colors.white,
       type: BottomNavigationBarType.fixed,
       onTap: _onItemTapped,
       showUnselectedLabels: true,
     );
   }
 
-  PreferredSizeWidget? _appBarBuilder() {
+
+  PreferredSizeWidget? _appBarBuilder(context) {
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.menu, color: Colors.white),
-        onPressed: () {
-          showMenu(
-            context: context,
-            position: const RelativeRect.fromLTRB(0, 80, 0, 0),
-            items: [
-              const PopupMenuItem<int>(
-                value: 0,
-                child: Text('Trang chủ'),
-              ),
-              const PopupMenuItem<int>(
-                value: 1,
-                child: Text('Hồ sơ cá nhân'),
-              ),
-              const PopupMenuItem<int>(
-                value: 2,
-                child: Text('Cài đặt'),
-              ),
-            ],
-            elevation: 8.0,
-          );
-        },
-      ),
+      leading: Builder(builder: (context) {
+        return IconButton(
+          icon: const Icon(
+            Icons.menu,
+            color: Colors.white,
+            size: 30,
+          ),
+          onPressed: () {
+            Scaffold.of(context).openDrawer();
+          },
+        );
+      }),
       title: Text(
         _getTitle(),
         style: const TextStyle(
@@ -164,13 +217,13 @@ class _HomePageState extends State<HomePage> {
               if (value != null) {
                 switch (value) {
                   case 0:
-                  // Xử lý khi chọn Cài đặt chung
+                    // Xử lý khi chọn Cài đặt chung
                     break;
                   case 1:
-                  // Xử lý khi chọn Thông tin ứng dụng
+                    // Xử lý khi chọn Thông tin ứng dụng
                     break;
                   case 2:
-                  // Xử lý khi chọn Đăng xuất
+                    // Xử lý khi chọn Đăng xuất
                     break;
                 }
               }
@@ -184,15 +237,15 @@ class _HomePageState extends State<HomePage> {
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
-        return 'Bản đồ';
+        return 'FMap';
       case 1:
         return 'Bạn bè';
-      case 2:
-        return 'Thông báo';
       case 3:
+        return 'Thông báo';
+      case 4:
         return 'Tìm kiếm';
       default:
-        return 'Ứng dụng';
+        return 'FMap';
     }
   }
 }

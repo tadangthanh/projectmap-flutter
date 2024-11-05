@@ -4,6 +4,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:map/common_view/loading.dart';
 import 'package:map/friend_list_tab.dart';
+import 'package:map/group_screen.dart';
 
 import 'bloc/notification/notification_bloc.dart';
 import 'bloc/notification/notification_event.dart';
@@ -78,30 +79,40 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.more_horiz_outlined, color: Colors.grey),
+                            icon: const Icon(Icons.more_horiz_outlined,
+                                color: Colors.grey),
                             onPressed: () {
                               showMenu(
                                 context: context,
-                                position: const RelativeRect.fromLTRB(10, 150, 5, 0),
+                                position:
+                                    const RelativeRect.fromLTRB(10, 150, 5, 0),
                                 items: [
                                   PopupMenuItem<int>(
                                     value: 0,
                                     child: Column(
                                       children: [
                                         ListTile(
-                                          leading: const Icon(Icons.mark_as_unread_outlined, color: Colors.blueAccent),
-                                          title: const Text('Đánh dấu tất cả là đã đọc'),
+                                          leading: const Icon(
+                                              Icons.mark_as_unread_outlined,
+                                              color: Colors.blueAccent),
+                                          title: const Text(
+                                              'Đánh dấu tất cả là đã đọc'),
                                           onTap: () {
                                             Navigator.of(context).pop();
-                                            _notificationBloc.add(MarkAllNotificationsAsReadEvent());
+                                            _notificationBloc.add(
+                                                MarkAllNotificationsAsReadEvent());
                                           },
                                         ),
                                         ListTile(
-                                          leading: const Icon(Icons.cancel_presentation, color: Colors.red),
-                                          title: const Text('Xóa hết thông báo'),
+                                          leading: const Icon(
+                                              Icons.cancel_presentation,
+                                              color: Colors.red),
+                                          title:
+                                              const Text('Xóa hết thông báo'),
                                           onTap: () {
                                             Navigator.of(context).pop();
-                                            _notificationBloc.add(DeleteAllNotificationsEvent());
+                                            _notificationBloc.add(
+                                                DeleteAllNotificationsEvent());
                                           },
                                         )
                                       ],
@@ -169,64 +180,67 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return ListView.builder(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: state.notifications.length + (_showNoMoreNotifications ? 1 : 0),
+      itemCount:
+          state.notifications.length + (_showNoMoreNotifications ? 1 : 0),
       itemBuilder: (context, index) {
         if (index < state.notifications.length) {
           final notification = state.notifications[index];
-          return Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            elevation: notification.isRead ? 0 : 4,
-            color: notification.isRead ? Colors.grey.shade200 : Colors.white,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: ListTile(
-              leading: notification.senderAvatarUrl != null
-                  ? CircleAvatar(
-                backgroundImage: NetworkImage(notification.senderAvatarUrl),
-                radius: 30,
-              )
-                  : const Icon(Icons.notifications_outlined),
-              title: Text(
-                "${notification.title}",
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: notification.isRead
-                      ? FontWeight.normal
-                      : FontWeight.w600,
-                  color: notification.isRead
-                      ? Colors.black.withOpacity(0.6)
-                      : Colors.black,
-                ),
+          return ListTile(
+            tileColor: notification.isRead ? Colors.grey[200] : Colors.white,
+            // Phân biệt màu nền đã đọc và chưa đọc
+            leading: notification.senderAvatarUrl != null
+                ? CircleAvatar(
+                    backgroundImage: NetworkImage(notification.senderAvatarUrl),
+                    radius: 30,
+                  )
+                : const Icon(Icons.notifications_outlined),
+            title: Text(
+              "${notification.title}",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight:
+                    notification.isRead ? FontWeight.normal : FontWeight.w600,
+                color: notification.isRead
+                    ? Colors.black.withOpacity(0.6)
+                    : Colors.black,
               ),
-              subtitle: Text(
-                notification.message,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: notification.isRead ? Colors.grey : Colors.black87,
-                ),
-              ),
-              onTap: () {
-                if (!notification.isRead) {
-                  _notificationBloc.add(MarkNotificationAsReadEvent(notification.id));
-                }
-                if (notification.type == NotificationType.FRIEND_REQUEST) {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const FriendListTabScreen(
-                            selectedIndex: 1,
-                          )));
-                } else if (notification.type == NotificationType.ACCEPT_FRIEND) {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const FriendListTabScreen(
-                            selectedIndex: 0,
-                          )));
-                }
-              },
             ),
+            subtitle: Text(
+              notification.message,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: notification.isRead ? Colors.grey : Colors.black87,
+              ),
+            ),
+            trailing: notification.isRead
+                ? const Icon(Icons.check,
+                    color: Colors.green) // Icon để hiển thị đã đọc
+                : const Icon(Icons.new_releases, color: Colors.blue),
+            // Icon để hiển thị chưa đọc
+            onTap: () {
+              if (!notification.isRead) {
+                _notificationBloc
+                    .add(MarkNotificationAsReadEvent(notification.id));
+              }
+              if (notification.type == NotificationType.FRIEND_REQUEST) {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const FriendListTabScreen(
+                              selectedIndex: 1,
+                            )));
+              } else if (notification.type == NotificationType.ACCEPT_FRIEND) {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                        const FriendListTabScreen(
+                          selectedIndex: 0,
+                        )));
+              }else if(notification.type == NotificationType.GROUP_INVITATION){
+                Navigator.push(context, MaterialPageRoute(builder: (context)=> const GroupListScreen(selectedIndex:1) ));
+              }
+            },
           );
         } else {
           return Visibility(

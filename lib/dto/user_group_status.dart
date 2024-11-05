@@ -1,0 +1,4 @@
+enum UserGroupStatus{
+  JOINED,
+  PENDING,
+}

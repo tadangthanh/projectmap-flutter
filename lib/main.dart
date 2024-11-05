@@ -17,6 +17,7 @@ import 'package:map/service/authentication_service.dart';
 import 'package:map/service/back_service.dart';
 import 'package:map/service/custome_sound_notification.dart';
 import 'package:map/service/firebase_api.dart';
+import 'package:map/service/group_service.dart';
 import 'package:map/service/location_search_history_service.dart';
 import 'package:map/service/notification_service.dart';
 import 'package:map/service/place_search.dart';
@@ -40,6 +41,7 @@ void main() async {
   getIt.registerLazySingleton<TokenRepo>((() => TokenRepo()));
   getIt.registerLazySingleton<NotificationApiService>((() => NotificationApiService()));
   getIt.registerLazySingleton<NotificationLocalService>((() => NotificationLocalService()));
+  getIt.registerLazySingleton<GroupService>((() => GroupService()));
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
 

@@ -41,8 +41,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late StompClient _client;
   late GoogleMapController? _googleMapController;
   late LocationData _currentPosition;
+
+  // marker của bạn bè
   late List<Marker> _markerUsers;
+
+  // marker của địa điểm tìm kiếm
   late final Set<Marker> _markersPlace = {};
+  late final List<Marker> _markerPolyline = [];
   late Marker _placeSearchMarker = const Marker(markerId: MarkerId(''));
   late MapType _currentMapType = MapType.normal;
   final Location _location = Location();
@@ -61,7 +66,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late VehicleType _vehicleType = VehicleType.TWO_WHEELER;
   late bool _isEnabledSelectLocation = false;
   late String _style = "";
-
+  List<LatLng> visitedCoordinates = []; // Các điểm đã đi qua
+  List<LatLng> polylineCoordinates = []; // Các điểm polyline
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
       await _init(emit);
@@ -146,6 +152,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     on<ChangeMapThemeEvent>((event, emit) async {
       await _changeMapTheme(emit, event.mapTheme);
     });
+    // su kien tap vao polyline
+    on<TappedPolylineEvent>((event, emit) async {
+      await _changeMainDirection(
+          event.polylineId, event.distance, event.duration, emit);
+    });
     add(InitMapEvent());
   }
 
@@ -160,14 +171,171 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _emitLoadedMapState(emit);
   }
 
+  Future<void> _changeMainDirection(String polylineId, String distance,
+      String duration, Emitter<MapState> emit) async {
+    // Khởi tạo danh sách Polyline mới
+    List<Polyline> updatedPolylines = [];
+    String newDistance = distance;
+    String newDuration = duration;
+    // thay đổi màu cho polyline đuợc tap vào, chuyển thành màu của tuyến đường chính,các tuyến phụ sẽ có màu khác
+    for (Polyline polyline in _directionInfo!.polyline) {
+      if (polyline.polylineId.value == "outer_$polylineId") {
+        // Tạo lại Polyline ngoài với các thuộc tính cập nhật
+        Polyline newOuterPolyline = polyline.copyWith(
+          colorParam: const Color(0xff0a11d8),
+          widthParam: 10,
+          zIndexParam: 90,
+        );
+        updatedPolylines.add(newOuterPolyline);
+      } else if (polyline.polylineId.value == "inner_$polylineId") {
+        // Tạo lại Polyline chính bên trong với các thuộc tính cập nhật
+        Polyline newInnerPolyline = polyline.copyWith(
+          colorParam: const Color(0xff0f53ff),
+          widthParam: 8,
+          zIndexParam: 100,
+        );
+        updatedPolylines.add(newInnerPolyline);
+      } else if (polyline.polylineId.value.startsWith("outer_")) {
+        // Tạo lại Polyline viền ngoài cho các tuyến phụ
+        Polyline newOuterPolyline = polyline.copyWith(
+          colorParam: const Color(0xffababb5),
+          widthParam: 8,
+          zIndexParam: -1,
+        );
+        updatedPolylines.add(newOuterPolyline);
+      } else if (polyline.polylineId.value.startsWith("inner_")) {
+        // Tạo lại Polyline chính bên trong cho các tuyến phụ
+        Polyline newInnerPolyline = polyline.copyWith(
+          colorParam: const Color(0xffbccefb),
+          widthParam: 6,
+          zIndexParam: 0,
+        );
+        updatedPolylines.add(newInnerPolyline);
+      } else {
+        // Giữ nguyên các Polyline khác
+        updatedPolylines.add(polyline);
+      }
+    }
+    // Cập nhật lại danh sách `Polyline` của `_directionInfo`
+    _directionInfo!.polyline = updatedPolylines;
+    _directionInfo!.distance = newDistance;
+    _directionInfo!.duration = newDuration;
+
+    // Xóa các Marker cũ
+    _markerPolyline.clear();
+
+    // Tạo custom marker hiển thị thời gian
+    BitmapDescriptor customMarkerBitmap = await _createCustomMarkerBitmap(
+        _formatDuration(duration.split("s")[0]));
+
+    // Tìm vị trí trung bình của `Polyline` đã được nhấn
+    LatLng position = _getMiddlePointOfPolyline(polylineId);
+
+    // Tạo Marker với hình ảnh tùy chỉnh
+    Marker infoMarker = Marker(
+      markerId: MarkerId('info_marker_$polylineId'),
+      position: position,
+      icon: customMarkerBitmap,
+    );
+
+    // Thêm Marker vào danh sách các Marker Polyline
+    _markerPolyline.add(infoMarker);
+    _emitLoadedMapState(emit);
+  }
+
+  LatLng _getMiddlePointOfPolyline(String polylineId) {
+    // Lấy ra polyline tương ứng với polylineId
+    Polyline? selectedPolyline = _directionInfo?.polyline.firstWhere(
+        (polyline) => polyline.polylineId.value.contains(polylineId));
+
+    if (selectedPolyline != null && selectedPolyline.points.isNotEmpty) {
+      int middleIndex = (selectedPolyline.points.length / 2).floor();
+      return selectedPolyline.points[middleIndex];
+    } else {
+      return LatLng(_currentPosition.latitude!, _currentPosition.longitude!);
+    }
+  }
+
+// Hàm chuyển đổi thời gian (giây) thành định dạng giờ và phút
+  String _formatDuration(String duration) {
+    int durationInSeconds = int.tryParse(duration) ?? 0;
+    int hours = durationInSeconds ~/ 3600;
+    int minutes = (durationInSeconds % 3600) ~/ 60;
+
+    if (hours > 0) {
+      return "$hours giờ $minutes phút";
+    } else {
+      return "$minutes phút";
+    }
+  }
+
+  // custome marker for polyline info
+  Future<BitmapDescriptor> _createCustomMarkerBitmap(String duration) async {
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    const double width = 200.0;
+    const double height = 80.0;
+
+    // Vẽ nền cho marker (hình chữ nhật bo tròn)
+    Paint paint = Paint()..color = Colors.blueAccent;
+    RRect rrect = RRect.fromRectAndRadius(
+        const Rect.fromLTWH(0, 0, width, height), const Radius.circular(10));
+    canvas.drawRRect(rrect, paint);
+
+    // Vẽ icon thời gian
+    TextPainter iconPainter = TextPainter(
+      text: const TextSpan(
+        text: '⏱️', // Icon thời gian
+        style: TextStyle(fontSize: 30),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    iconPainter.layout();
+    iconPainter.paint(canvas, const Offset(10, height / 4));
+
+    // Vẽ thời gian lên `Canvas`
+    TextPainter textPainter = TextPainter(
+      text: TextSpan(
+        text: duration,
+        style: const TextStyle(
+            color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, const Offset(60, height / 4));
+
+    // Chuyển `Picture` thành `Image`
+    final ui.Image markerImage = await pictureRecorder
+        .endRecording()
+        .toImage(width.toInt(), height.toInt());
+
+    // Chuyển đổi `Image` thành `ByteData`
+    final ByteData? byteData =
+        await markerImage.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) {
+      throw Exception('Failed to convert marker to ByteData');
+    }
+
+    // Chuyển đổi `ByteData` thành `Uint8List`
+    final Uint8List imageData = byteData.buffer.asUint8List();
+
+    // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
+    return BitmapDescriptor.fromBytes(imageData);
+  }
+
   Future<void> _selectedLocation(
       Emitter<MapState> emit, LatLng location) async {
     await _removeAllPlaceMarkers(emit);
     _isLoading = true;
     _emitLoadedMapState(emit);
     DirectionInfo directionInfo = await _placeSearch.getPolylinePoints(
-        LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-        location);
+      LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+      location,
+      (String polylineId, String distance, String duration) {
+        add(TappedPolylineEvent(polylineId, distance, duration));
+      },
+    );
     _directionInfo = directionInfo;
     _place = Place(
         placeId: '1',
@@ -272,6 +440,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _query = '';
     _vehicleType = VehicleType.TWO_WHEELER;
     _markersPlace.clear();
+    _markerPolyline.clear();
     _isEnabledSelectLocation = false;
     _placesByNear.clear();
     _angelView = 0;
@@ -338,6 +507,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     List<Marker> markers = [];
     markers.addAll(_markerUsers);
     markers.addAll(_markersPlace);
+    markers.addAll(_markerPolyline);
     emit(LoadedMapState(_currentPosition, markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
         googleMapController: _googleMapController,
@@ -376,9 +546,13 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // Tạo đường đi giữa 2 điểm
     try {
       DirectionInfo directionInfo = await _placeSearch
-          .getPolylinePoints(origin, destination, mode: vehicleType);
+          .getPolylinePoints(origin, destination,
+              (String polylineId, String distance, String duration) {
+        add(TappedPolylineEvent(polylineId, distance, duration));
+      }, mode: vehicleType);
       _directionInfo = directionInfo;
       _isLoading = false;
+      polylineCoordinates.addAll(_directionInfo?.polyline.first.points ?? []);
       _emitLoadedMapState(emit);
       _zoomToFit(origin, destination);
       return;
@@ -417,6 +591,31 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
   }
 
+  void _updatePolylineColor(LatLng currentLatLng) {
+    visitedCoordinates.add(currentLatLng);
+
+    // Xóa polyline cũ
+    _directionInfo?.polyline.clear();
+
+    // Tạo polyline đã đi qua màu xám
+    _directionInfo?.polyline.add(Polyline(
+      polylineId: const PolylineId("visited_routes"),
+      color: Colors.red,
+      points: visitedCoordinates,
+      width: 10,
+    ));
+
+    // Tạo polyline chưa đi qua màu xanh
+    List<LatLng> remainingCoordinates =
+        polylineCoordinates.skip(visitedCoordinates.length).toList();
+    _directionInfo?.polyline.add(Polyline(
+      polylineId: const PolylineId("remaining_route"),
+      color: Colors.blue,
+      points: remainingCoordinates,
+      width: 5,
+    ));
+  }
+
   Future<void> _updateUserLocation(LocationData currentLocation) async {
     _currentPosition = currentLocation; // Cập nhật vị trí hiện tại
     //hướng của người dùng
@@ -429,6 +628,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
+    // _updatePolylineColor(LatLng(currentLocation.latitude!, currentLocation.longitude!));
     Battery _battery = Battery();
     // Cập nhật vị trí của người dùng
     _user.longitude = currentLocation.longitude!;

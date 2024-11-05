@@ -49,7 +49,7 @@ class _FriendScreenState extends State<FriendScreen> {
         create: (context) => _friendBloc,
         child: BlocBuilder<FriendBloc, FriendState>(builder: (context, state) {
           if (state is LoadingFriendState) {
-            return  loading();
+            return loading();
           } else if (state is FriendLoaded) {
             if (!state.hasNext) {
               _scrollController.removeListener(loadMoreData);
@@ -71,137 +71,34 @@ class _FriendScreenState extends State<FriendScreen> {
                             physics: const AlwaysScrollableScrollPhysics(),
                             itemCount: state.listUser.length,
                             itemBuilder: (context, index) {
-                              return Card(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: NetworkImage(
+                                      state.listUser[index].avatarUrl),
+                                  radius: 30,
                                 ),
-                                elevation: 5,
-                                margin: const EdgeInsets.symmetric(vertical: 10),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundImage: NetworkImage(
-                                        state.listUser[index].avatarUrl),
-                                    radius: 30,
-                                  ),
-                                  title: Text(
-                                    state.listUser[index].name,
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    state.listUser[index].email,
-                                    style: GoogleFonts.poppins(
-                                        fontSize: 13, color: Colors.grey),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onTap: () {
-                                    // Khi nhấn vào, hiển thị cửa sổ nổi từ dưới lên với thông tin chi tiết
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      shape: const RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(25)),
-                                      ),
-                                      builder: (context) {
-                                        return DraggableScrollableSheet(
-                                          expand: false,
-                                          initialChildSize: 0.5,
-                                          minChildSize: 0.3,
-                                          maxChildSize: 0.9,
-                                          builder: (context, scrollController) {
-                                            return SingleChildScrollView(
-                                              controller: scrollController,
-                                              child: Padding(
-                                                padding: const EdgeInsets.all(20.0),
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        CircleAvatar(
-                                                          backgroundImage: NetworkImage(
-                                                              state.listUser[index]
-                                                                  .avatarUrl),
-                                                          radius: 50,
-                                                        ),
-                                                        const SizedBox(width: 20),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                            children: [
-                                                              Text(
-                                                                state.listUser[index]
-                                                                    .name,
-                                                                style: GoogleFonts
-                                                                    .poppins(
-                                                                  fontSize: 22,
-                                                                  fontWeight:
-                                                                  FontWeight.bold,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                TextOverflow.ellipsis,
-                                                              ),
-                                                              Text(
-                                                                state.listUser[index]
-                                                                    .email,
-                                                                style: GoogleFonts
-                                                                    .poppins(
-                                                                  fontSize: 11,
-                                                                  color: Colors.grey,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                TextOverflow.ellipsis,
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 20),
-                                                    const Divider(),
-                                                    const SizedBox(height: 15),
-                                                    // Các nút hành động khác
-                                                    Wrap(
-                                                      spacing:
-                                                      12.0, // Khoảng cách giữa các nút
-                                                      runSpacing:
-                                                      8.0, // Khoảng cách giữa các hàng (nếu bị tràn)
-                                                      alignment:
-                                                      WrapAlignment.center,
-                                                      children: [
-                                                        _buttonBuilder("Nhắn tin", Icons.message, () {
-                                                          // Xử lý nhắn tin
-                                                        }),
-                                                        _buttonBuilder("Gọi điện", Icons.phone, () {
-                                                          // Xử lý gọi điện
-                                                        }),
-                                                        _buttonBuilder("Huỷ kết bạn", Icons.person_add_disabled, () {
-                                                          _friendBloc.add(UnFriendEvent(state.listUser[index].email));
-                                                        }),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        );
-                                      },
-                                    );
-                                  },
+                                trailing: const Icon(Icons.arrow_forward_ios,
+                                    color: Colors.grey,size: 16,),
+                                title: Text(
+                                  state.listUser[index].name,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                                subtitle: Text(
+                                  state.listUser[index].email,
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 11, color: Colors.grey),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onTap: () {
+                                  // Khi nhấn vào, hiển thị cửa sổ nổi từ dưới lên với thông tin chi tiết
+                                  _showModal(state, index);
+                                },
                               );
                             },
                           ),
@@ -227,37 +124,138 @@ class _FriendScreenState extends State<FriendScreen> {
           } else if (state is FriendError) {
             return Center(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      state.message,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _refreshData,
-                      child: const Text('Thử lại'),
-                    ),
-                  ],
-                ));
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  state.message,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _refreshData,
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ));
           }
           return const SizedBox();
         }));
   }
 
+  Future _showModal(state, index) async {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundImage:
+                              NetworkImage(state.listUser[index].avatarUrl),
+                          radius: 30,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                state.listUser[index].name,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                state.listUser[index].email,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      decoration: InputDecoration(
+                        suffixIcon: const Icon(
+                          Icons.send,
+                          size: 26,
+                          color: Colors.blueAccent,
+                        ),
+                        hintText:
+                            'Gửi tin nhắn cho ${state.listUser[index].name}',
+                        hintStyle: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    // Các nút hành động khác
+                    Wrap(
+                      spacing: 5.0, // Khoảng cách giữa các nút
+                      runSpacing:
+                          8.0, // Khoảng cách giữa các hàng (nếu bị tràn)
+                      alignment: WrapAlignment.spaceBetween,
+                      children: [
+                        _buttonBuilder("Gọi điện", Icons.phone, () {
+                          // Xử lý gọi điện
+                        }),
+                        _buttonBuilder("Huỷ kết bạn", Icons.person_add_disabled,
+                            () {
+                          _friendBloc
+                              .add(UnFriendEvent(state.listUser[index].email));
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buttonBuilder(String label, IconData icon, Function() onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: 11),
       label: Text(
         label,
-        style: GoogleFonts.poppins(fontSize: 14),
+        style: GoogleFonts.poppins(fontSize: 11),
       ),
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
