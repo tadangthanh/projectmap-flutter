@@ -39,7 +39,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   static final List<Widget> _widgetOptions = <Widget>[
     const MapScreen(),
     const FriendListTabScreen(),
-     ChatScreen(),
     NotificationScreen(),
     SearchScreen(),
   ];
@@ -134,11 +133,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           icon: Icon(Icons.group_outlined),
           activeIcon: Icon(Icons.group),
           label: 'Bạn bè',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat_outlined),
-          activeIcon: Icon(Icons.chat),
-          label: 'Nhắn tin',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.notifications_outlined),
@@ -246,8 +240,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         return 'FMap';
       case 1:
         return 'Bạn bè';
-      case 2:
-        return 'Nhắn tin';
       case 3:
         return 'Thông báo';
       case 4:

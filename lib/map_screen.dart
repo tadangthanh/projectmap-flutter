@@ -100,7 +100,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   mapType: state.currentMapType,
                   polylines: state.directionInfo != null
                       ? state.directionInfo!
-                          .polyline // Nếu directionInfo khác null, thêm polyline vào tập hợp
+                          .polyline.toSet() // Nếu directionInfo khác null, thêm polyline vào tập hợp
                       : {},
                   // Nếu null, trả về tập hợp rỗng
                   onMapCreated: (controller) {
@@ -582,19 +582,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 state.isLoading
                     ? loading()
                     : SizedBox(
-                  height: 150,
+                  height: 70,
                   child: TabBarView(
                     controller: _tabController,
                     children: [
                       _buildDistanceAndDurationWidgets(
-                          state.directionInfo?.distance ?? {},
-                          state.directionInfo?.duration ?? {}),
+                          state.directionInfo?.distance,
+                          state.directionInfo?.duration),
                       _buildDistanceAndDurationWidgets(
-                          state.directionInfo?.distance ?? {},
-                          state.directionInfo?.duration ?? {}),
+                          state.directionInfo?.distance,
+                          state.directionInfo?.duration),
                       _buildDistanceAndDurationWidgets(
-                          state.directionInfo?.distance ?? {},
-                          state.directionInfo?.duration ?? {}),
+                          state.directionInfo?.distance,
+                          state.directionInfo?.duration),
                     ],
                   ),
                 ),
@@ -612,7 +612,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDistanceAndDurationWidgets(
-      Map<Color, String> distance, Map<Color, String> duration) {
+      String distance,String duration) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -624,64 +624,41 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           ),
         ),
         const SizedBox(height: 10),
-        Column(
-          children: distance.entries.map((entry) {
-            return Row(
+        Row(
+          children: [
+            Text(
+              "${(double.parse(distance) / 1000).toStringAsFixed(1)} km",
+              style: const TextStyle(fontSize: 16),
+            ),
+            Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.grey,
-                      width: 1,
-                    ),
-                    color: entry.key,
-                  ),
-                  width: 20,
-                  height: 20,
-                ),
                 const SizedBox(width: 10),
-                Row(
-                  children: [
-                    Text(
-                      "${(double.parse(entry.value) / 1000).toStringAsFixed(1)} km",
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        const Icon(
-                          Icons.access_time,
-                          color: Colors.blue,
-                        ),
-                        duration[entry.key] != null
-                            ? Text(
-                                () {
-                                  // Lấy số giây từ chuỗi và chuyển đổi sang double
-                                  double seconds = double.parse(
-                                      duration[entry.key]!.split("s")[0]);
+                const Icon(
+                  Icons.access_time,
+                  color: Colors.blue,
+                ),
+                Text(
+                      () {
+                    // Lấy số giây từ chuỗi và chuyển đổi sang double
+                    double seconds = double.parse(
+                        duration.split("s")[0]);
 
-                                  // Chuyển từ giây sang giờ và phút
-                                  int hours = (seconds ~/ 3600);
-                                  int minutes = ((seconds % 3600) / 60).floor();
+                    // Chuyển từ giây sang giờ và phút
+                    int hours = (seconds ~/ 3600);
+                    int minutes = ((seconds % 3600) / 60).floor();
 
-                                  // Trả về chuỗi giờ và phút với định dạng phù hợp
-                                  if (hours > 0) {
-                                    return "$hours giờ $minutes phút";
-                                  } else {
-                                    return "$minutes phút";
-                                  }
-                                }(),
-                                style: const TextStyle(fontSize: 16),
-                              )
-                            : const SizedBox(),
-                      ],
-                    )
-                  ],
-                )
+                    // Trả về chuỗi giờ và phút với định dạng phù hợp
+                    if (hours > 0) {
+                      return "$hours giờ $minutes phút";
+                    } else {
+                      return "$minutes phút";
+                    }
+                  }(),
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
-            );
-          }).toList(),
+            )
+          ],
         ),
       ],
     );

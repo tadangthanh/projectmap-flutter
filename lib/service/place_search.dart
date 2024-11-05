@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
@@ -71,27 +72,25 @@ class PlaceSearch {
     }
   }
 
-
-
-  Future<DirectionInfo> getPolylinePoints(LatLng start, LatLng end,
+  Future<DirectionInfo> getPolylinePoints(
+      LatLng start,
+      LatLng end,
+      Function(String polylineId, String distance,
+              String duration)
+          onPolylineTap,
+      // Sửa đổi để thêm polylineId
       {VehicleType mode = VehicleType.TWO_WHEELER}) async {
     PolylinePoints polylinePoints = PolylinePoints();
-    Set<Polyline> polylines = {};
-    // Danh sách các màu
-    List<Color> colors = [
-      Colors.blue,
-      Colors.orangeAccent,
-      Colors.grey,
-      Colors.deepOrangeAccent,
-    ];
+    List<Polyline> polylines = [];
+
     final Uri url =
-    Uri.parse("https://routes.googleapis.com/directions/v2:computeRoutes");
+        Uri.parse("https://routes.googleapis.com/directions/v2:computeRoutes");
 
     // Tạo header
     final Map<String, String> headers = {
       'Content-Type': 'application/json',
       'X-Goog-FieldMask':
-      'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+          'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
       'X-Goog-Api-Key': apiKey,
     };
 
@@ -113,60 +112,92 @@ class PlaceSearch {
           }
         }
       },
-      'travelMode': mode.toString().split('.').last, // Lấy tên enum cho mode
+      'travelMode': mode.toString().split('.').last,
       'polylineQuality': 'HIGH_QUALITY',
       'languageCode': 'vi',
-      'computeAlternativeRoutes': true, // Tính thêm các tuyến đường phụ
+      'computeAlternativeRoutes': true,
     });
 
     // Gửi request
     final response = await http.post(url, headers: headers, body: body);
 
-    // Kiểm tra phản hồi
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-
-      //routes chua danh duration, distanceMeters, polyline
       final routes = data['routes'];
-      // Chuyển đổi dữ liệu JSON thành danh sách các route
+
       Set<RouteResponse> routeResponses = routes
           .map<RouteResponse>((route) => RouteResponse.fromJson(route))
           .toSet();
 
-     Map<Color,String> distance = {};
-      Map<Color,String> duration = {};
-      int index=0;
+      String distance = '';
+      String duration = '';
+      int index = 0;
+
       for (var result in routeResponses) {
-        //tọa độ của tuyến đường
-        List<LatLng> polylineCoordinates = [];  // Tạo mới mỗi khi tạo một tuyến mới
-        // giải mã chuỗi polyline thành danh sách các tọa độ point
+        // tọa độ của tuyến đường
+        List<LatLng> polylineCoordinates = [];
         List<PointLatLng> avl =
-        polylinePoints.decodePolyline(result.polyline.encodedPolyline);
+            polylinePoints.decodePolyline(result.polyline.encodedPolyline);
 
         if (avl.isNotEmpty) {
           for (var point in avl) {
             polylineCoordinates.add(LatLng(point.latitude, point.longitude));
           }
         }
+        var rng = Random();
+        String polylineId = rng.nextInt(10000).toString();
+        // ID cho tuyến đường (sử dụng duration và index để phân biệt)
+        // String polylineId = 'route${result.duration}_$index';
 
-        // Tạo một polyline từ các điểm tọa độ
-        Polyline polyline = Polyline(
-          polylineId: PolylineId('route${result.duration}'),
+        // Tạo polyline màu viền (ngoài)
+        Polyline outerPolyline = Polyline(
+          polylineId: PolylineId('outer_$polylineId'),
           points: polylineCoordinates,
-          color: colors[index++],
-          width: 10,
+          color: index == 0 ? const Color(0xff0a11d8) : const Color(0xffababb5),
+          width: index == 0 ? 10 : 8,
+          // Viền ngoài rộng hơn
+          zIndex: index == 0
+              ? 90
+              : -1, // Đảm bảo tuyến chính hiển thị trên tuyến phụ
         );
-        polylines.add(polyline);
-        distance[polyline.color] = result.distanceMeters.toString();
-        duration[polyline.color] = result.duration;
 
-        // Thêm khoảng cách và thời gian
+        // Tạo polyline chính bên trong
+        Color polylineColor =
+            index == 0 ? const Color(0xff0f53ff) : const Color(0xffbccefb);
+        Polyline innerPolyline = Polyline(
+          polylineId: PolylineId('inner_$polylineId'),
+          points: polylineCoordinates,
+          color: polylineColor,
+          width: index == 0 ? 8 : 6,
+          // Tuyến chính bên trong có độ rộng nhỏ hơn
+          zIndex: index == 0 ? 100 : 0,
+          onTap: () {
+            // Truyền polylineId vào hàm onPolylineTap
+            onPolylineTap(polylineId,
+                result.distanceMeters.toString(), result.duration);
+          },
+          consumeTapEvents: true,
+        );
+
+        // Thêm cả hai polyline vào tập hợp
+        polylines.add(outerPolyline);
+        polylines.add(innerPolyline);
+
+        // Lưu thông tin khoảng cách và thời gian cho polyline chính (inner)
+        if(index==0){
+          distance= result.distanceMeters.toString();
+          duration = result.duration;
+        }
+
+        index++;
       }
-      // Trả về DirectionInfo chứa polyline, distance và duration
+
       return DirectionInfo(
-          polyline: polylines, distance: distance, duration: duration);
+        polyline: polylines,
+        distance: distance,
+        duration: duration,
+      );
     } else {
-      // Xử lý lỗi khi không nhận được phản hồi thành công từ API
       throw Exception('Failed to load routes: ${response.body}');
     }
   }

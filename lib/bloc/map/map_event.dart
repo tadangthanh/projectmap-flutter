@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:map/entity/direction_info.dart';
@@ -80,4 +82,10 @@ class CloseFriendTappedEvent extends MapEvent {}
 class ChangeMapThemeEvent extends MapEvent {
   final MapTheme mapTheme;
   ChangeMapThemeEvent(this.mapTheme);
+}
+class TappedPolylineEvent extends MapEvent {
+   String polylineId;
+  String distance;
+  String duration;
+  TappedPolylineEvent(this.polylineId, this.distance, this.duration);
 }
