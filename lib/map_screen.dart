@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:circular_menu/circular_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -84,7 +85,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 // Bản đồ
                 GoogleMap(
                   style: state.style,
-                  onTap: (latLng) {},
+                  onTap: (latLng) {
+                    // if (state.isEnabledSelectLocation) {
+                    //   // Gửi sự kiện khi người dùng chọn vị trí trên bản đồ
+                    //   BlocProvider.of<MapBloc>(context)
+                    //       .add(SelectLocationEvent(latLng));
+                    // }
+                    // print('latLng: $latLng');
+                  },
                   mapToolbarEnabled: false,
                   buildingsEnabled: true,
                   trafficEnabled: state.trafficEnabled,
@@ -99,8 +107,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   markers: state.markers.toSet(),
                   mapType: state.currentMapType,
                   polylines: state.directionInfo != null
-                      ? state.directionInfo!
-                          .polyline.toSet() // Nếu directionInfo khác null, thêm polyline vào tập hợp
+                      ? state.directionInfo!.polyline
+                          .toSet() // Nếu directionInfo khác null, thêm polyline vào tập hợp
                       : {},
                   // Nếu null, trả về tập hợp rỗng
                   onMapCreated: (controller) {
@@ -178,11 +186,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       : const SizedBox(),
                 ),
                 // icon định vị vị trí hiện tại
-                Positioned(
-                  bottom: 100,
-                  right: 25,
-                  child: _floatingActionButtons(context, state),
-                ),
+                !state.isEnabledSelectLocation && !state.isJourneyStarted
+                    ? Positioned(
+                        bottom: 50,
+                        right: 0,
+                        child: _floatingActionsButtonBuilder(context, state),
+                      )
+                    : const SizedBox(),
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -232,6 +242,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       }),
     );
   }
+
 
   Widget _buildListShortcut(context, state) {
     return SingleChildScrollView(
@@ -557,50 +568,52 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 )
               : const SizedBox(),
           const SizedBox(height: 25),
-          state.directionInfo==null?const SizedBox():DefaultTabController(
-            length: 3,
-            child: Column(
-              children: [
-                TabBar(
-                  controller: _tabController,
-                  tabs: const [
-                    Tab(
-                      text: 'Ô tô',
-                      icon: Icon(Icons.directions_car),
-                    ),
-                    Tab(
-                      text: 'Xe máy',
-                      icon: Icon(Icons.two_wheeler),
-                    ),
-                    Tab(
-                      text: 'Đi bộ',
-                      icon: Icon(Icons.directions_walk),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                state.isLoading
-                    ? loading()
-                    : SizedBox(
-                  height: 70,
-                  child: TabBarView(
-                    controller: _tabController,
+          state.directionInfo == null
+              ? const SizedBox()
+              : DefaultTabController(
+                  length: 3,
+                  child: Column(
                     children: [
-                      _buildDistanceAndDurationWidgets(
-                          state.directionInfo?.distance,
-                          state.directionInfo?.duration),
-                      _buildDistanceAndDurationWidgets(
-                          state.directionInfo?.distance,
-                          state.directionInfo?.duration),
-                      _buildDistanceAndDurationWidgets(
-                          state.directionInfo?.distance,
-                          state.directionInfo?.duration),
+                      TabBar(
+                        controller: _tabController,
+                        tabs: const [
+                          Tab(
+                            text: 'Ô tô',
+                            icon: Icon(Icons.directions_car),
+                          ),
+                          Tab(
+                            text: 'Xe máy',
+                            icon: Icon(Icons.two_wheeler),
+                          ),
+                          Tab(
+                            text: 'Đi bộ',
+                            icon: Icon(Icons.directions_walk),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      state.isLoading
+                          ? loading()
+                          : SizedBox(
+                              height: 70,
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _buildDistanceAndDurationWidgets(
+                                      state.directionInfo?.distance,
+                                      state.directionInfo?.duration),
+                                  _buildDistanceAndDurationWidgets(
+                                      state.directionInfo?.distance,
+                                      state.directionInfo?.duration),
+                                  _buildDistanceAndDurationWidgets(
+                                      state.directionInfo?.distance,
+                                      state.directionInfo?.duration),
+                                ],
+                              ),
+                            ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
           const SizedBox(height: 25),
           // Nút hành động cho hành trình
           state.isLoading
@@ -611,8 +624,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildDistanceAndDurationWidgets(
-      String distance,String duration) {
+  Widget _buildDistanceAndDurationWidgets(String distance, String duration) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -638,10 +650,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   color: Colors.blue,
                 ),
                 Text(
-                      () {
+                  () {
                     // Lấy số giây từ chuỗi và chuyển đổi sang double
-                    double seconds = double.parse(
-                        duration.split("s")[0]);
+                    double seconds = double.parse(duration.split("s")[0]);
 
                     // Chuyển từ giây sang giờ và phút
                     int hours = (seconds ~/ 3600);
@@ -780,7 +791,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _direction(context, state, 'Đường đi', 'assets/icons/direction.png',
+        _directionFunctionButton(
+            context, state, 'Đường đi', Icons.directions, Colors.blueAccent,
             () {
           BlocProvider.of<MapBloc>(context).add(DirectionEvent(
             LatLng(state.locationData.latitude!, state.locationData.longitude!),
@@ -788,7 +800,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             place,
           ));
         }),
-        _direction(context, state, 'Hủy', 'assets/icons/cancel.png', () {
+        _directionFunctionButton(
+            context, state, 'Hủy', Icons.close_outlined, Colors.redAccent, () {
           BlocProvider.of<MapBloc>(context).add(CompleteDirectionEvent());
         }),
       ],
@@ -796,24 +809,83 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildStartAndCancelButtons(BuildContext context, state) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      spacing: 8.0, // Khoảng cách giữa các nút
+      runSpacing: 8.0, // Khoảng cách giữa các dòng nút
       children: [
-        _direction(context, state, 'Bắt đầu', 'assets/icons/navigation.png',
-            () {
-          _draggableScrollableController.animateTo(
-            0.1, // Kích thước nhỏ nhất
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-          BlocProvider.of<MapBloc>(context).add(
-            StartTrackingDirectionEvent(state.directionInfo!),
-          );
-        }),
-        _direction(context, state, 'Hủy', 'assets/icons/cancel.png', () {
-          BlocProvider.of<MapBloc>(context).add(CompleteDirectionEvent());
-        }),
+        _directionFunctionButton(
+          context,
+          state,
+          'Bắt đầu',
+          Icons.navigation,
+          Colors.blueAccent,
+          () {
+            _draggableScrollableController.animateTo(
+              0.1, // Kích thước nhỏ nhất
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+            BlocProvider.of<MapBloc>(context).add(
+              StartTrackingDirectionEvent(state.directionInfo!),
+            );
+          },
+        ),
+        _directionFunctionButton(
+          context,
+          state,
+          'Hủy',
+          Icons.close_outlined,
+          Colors.redAccent,
+          () {
+            BlocProvider.of<MapBloc>(context).add(CompleteDirectionEvent());
+          },
+        ),
+        // Nút More với PopupMenuButton để hiển thị các chức năng khác
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_horiz_outlined, color: Colors.grey),
+          onSelected: (value) {
+            if (value == 'share') {
+              // Thực hiện chức năng chia sẻ với nhóm
+              _shareWithGroup(context);
+            } else if (value == 'another_action') {
+              // Thực hiện chức năng khác
+              _anotherFunction(context);
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            const PopupMenuItem<String>(
+              value: 'share',
+              child: ListTile(
+                leading: Icon(Icons.share, color: Colors.blueAccent),
+                title: Text('Chia sẻ với nhóm'),
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'another_action',
+              child: ListTile(
+                leading: Icon(Icons.settings, color: Colors.greenAccent),
+                title: Text('Chức năng khác'),
+              ),
+            ),
+          ],
+        ),
       ],
+    );
+  }
+
+// Ví dụ về hàm chia sẻ với nhóm
+  void _shareWithGroup(BuildContext context) {
+    // Thực hiện hành động chia sẻ với nhóm
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đã chia sẻ với nhóm!')),
+    );
+  }
+
+// Ví dụ về hàm cho chức năng khác
+  void _anotherFunction(BuildContext context) {
+    // Thực hiện hành động khác
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đã thực hiện chức năng khác!')),
     );
   }
 
@@ -821,24 +893,28 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _direction(context, state, 'Hoàn thành', 'assets/icons/complete.png',
-            () {
+        _directionFunctionButton(
+            context, state, 'Hoàn thành', Icons.check, Colors.green, () {
           BlocProvider.of<MapBloc>(context).add(CompleteDirectionEvent());
+        }),
+        _directionFunctionButton(
+            context, state, 'Thoát', null, Colors.redAccent, () {
+          BlocProvider.of<MapBloc>(context).add(StopTrackingDirectionEvent());
         }),
       ],
     );
   }
 
-  Widget _direction(
-      context, state, label, assetsUrlIcon, Function()? function) {
+  Widget _directionFunctionButton(context, state, label, IconData? icon,
+      Color bgColor, Function()? function) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         ElevatedButton(
           style: ButtonStyle(
-            backgroundColor:
-                WidgetStateProperty.all(Colors.blueAccent), // Màu nền nút
-            foregroundColor: WidgetStateProperty.all(
-                Colors.blueAccent), // Màu văn bản và icon
+            backgroundColor: WidgetStateProperty.all(bgColor), // Màu nền nút
+            foregroundColor:
+                WidgetStateProperty.all(Colors.white), // Màu văn bản và icon
           ),
           onPressed: () {
             function!();
@@ -846,12 +922,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           },
           child: Row(
             children: [
-              Image.asset(
-                assetsUrlIcon,
-                width: 20,
-                height: 20,
-                color: Colors.white, // Đặt màu icon là trắng
-              ),
+              icon != null ? Icon(icon) : const SizedBox(),
               const SizedBox(width: 10),
               Text(
                 label,
@@ -1045,54 +1116,67 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _floatingActionButtons(context, state) {
+  Widget _floatingActionsButtonBuilder(context, state) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        !state.isEnabledSelectLocation && !state.isJourneyStarted
-            ? FloatingActionButton(
-                onPressed: () {
-                  BlocProvider.of<MapBloc>(context)
-                      .add(SelectLocationEvent(true));
-                },
-                backgroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+        if (!state.isEnabledSelectLocation && !state.isJourneyStarted)
+          SizedBox(
+            width: 150, // Đặt kích thước vùng chứa đủ lớn cho menu
+            height: 150,
+            child: CircularMenu(
+              animationDuration: const Duration(milliseconds: 200),
+              radius: 80,
+              alignment: Alignment.bottomRight,
+              toggleButtonColor: Colors.blueAccent,
+              items: [
+                CircularMenuItem(
+                  icon: Icons.add_location_alt_outlined,
+                  color: Colors.blueAccent,
+                  onTap: () {
+                    print('Add Location tapped');
+                    BlocProvider.of<MapBloc>(context)
+                        .add(SelectLocationEvent(true));
+                  },
                 ),
-                elevation: 10,
-                child: Image.asset(
-                  'assets/icons/add-location.png',
-                  color: Colors.white,
-                  width: 30,
-                  height: 30,
+                CircularMenuItem(
+                  icon: Icons.location_off_outlined,
+                  color: Colors.red,
+                  onTap: () {
+                    print('Wrong Location tapped');
+                    // Thực hiện hành động khác nếu cần
+                  },
                 ),
-              )
-            : const SizedBox(),
-        const SizedBox(height: 15),
-        FloatingActionButton(
-          heroTag: 'location',
-          backgroundColor: Colors.blueAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+                CircularMenuItem(
+                  icon: Icons.settings,
+                  color: Colors.green,
+                  onTap: () {
+                    print('Settings tapped');
+                    // Thực hiện hành động khác nếu cần
+                  },
+                ),
+              ],
+            ),
           ),
-          elevation: 10,
-          onPressed: () {
-            _isNavigationIcon = !_isNavigationIcon;
-            BlocProvider.of<MapBloc>(context).add(CurrentLocationEvent());
-          },
-          child: !_isNavigationIcon
-              ? Image.asset(
-                  'assets/icons/navigation.png',
-                  color: Colors.white,
-                  width: 24,
-                  height: 24,
-                )
-              : Image.asset(
-                  'assets/icons/compass.png',
-                  color: Colors.white,
-                  width: 30,
-                  height: 30,
-                ),
+        const SizedBox(height: 15),
+        Container(
+          padding: const EdgeInsets.only(right: 10),
+          child: FloatingActionButton(
+            heroTag: 'location',
+            backgroundColor: Colors.blueAccent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            elevation: 10,
+            onPressed: () {
+              BlocProvider.of<MapBloc>(context).add(CurrentLocationEvent());
+            },
+            child: const Icon(
+              Icons.my_location,
+              color: Colors.white,
+            ),
+          ),
         ),
         const SizedBox(height: 15),
       ],

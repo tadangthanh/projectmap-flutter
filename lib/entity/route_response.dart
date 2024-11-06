@@ -9,8 +9,8 @@ class RouteResponse{
 
   factory RouteResponse.fromJson(Map<String, dynamic> json){
     return RouteResponse(
-      json['distanceMeters'],
-      json['duration'],
+      json['distanceMeters']??0,
+      json['duration']??'0s',
       PolylineResponse.fromJson(json['polyline'])
     );
   }

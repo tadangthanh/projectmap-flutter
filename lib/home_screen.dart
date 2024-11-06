@@ -88,15 +88,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           ),
           ListTile(
-            leading: const Image(
-              image: AssetImage(Assets.iconsIconGroup),
-              width: 26,
-            ),
+            leading:const Icon(Icons.group_outlined, color: Colors.blueAccent),
             title: const Text('Nhóm'),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => GroupListScreen()));
+                  MaterialPageRoute(builder: (context) => const GroupListScreen()));
             },
           ),
           ListTile(
@@ -202,10 +199,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 const PopupMenuItem<int>(
                   value: 0,
                   child: Text('Cài đặt chung'),
-                ),
-                const PopupMenuItem<int>(
-                  value: 1,
-                  child: Text('Thông tin ứng dụng'),
                 ),
                 const PopupMenuItem<int>(
                   value: 2,

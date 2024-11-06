@@ -47,6 +47,9 @@ class StartTrackingDirectionEvent extends MapEvent{
   final DirectionInfo directionInfo;
   StartTrackingDirectionEvent(this.directionInfo);
 }
+class StopTrackingDirectionEvent extends MapEvent{
+
+}
 class LocationChangedEvent extends MapEvent {
   final LocationData currentLocation;
   LocationChangedEvent(this.currentLocation);
