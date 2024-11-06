@@ -68,6 +68,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late String _style = "";
   List<LatLng> visitedCoordinates = []; // Các điểm đã đi qua
   List<LatLng> polylineCoordinates = []; // Các điểm polyline
+
+
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
       await _init(emit);
@@ -96,6 +98,10 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // bat dau theo doi duong di
     on<StartTrackingDirectionEvent>((event, emit) async {
       await _startTrackingDirection(event.directionInfo, emit);
+    });
+    // dung theo doi duong di
+    on<StopTrackingDirectionEvent>((event, emit) async {
+      await _stopTrackingDirection(emit);
     });
     // thay đổi chi tiết  map : tình trạng giao thng /..
     on<ChangeMapDetailEvent>((event, emit) async {
@@ -391,12 +397,16 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _enableSelectLocation(
       Emitter<MapState> emit, bool isEnabledSelectLocation) async {
     _isEnabledSelectLocation = isEnabledSelectLocation;
+    _place=null;
+    _placeSearchMarker=const Marker(markerId: MarkerId(''));
+    _directionInfo = null;
     _emitLoadedMapState(emit);
   }
 
   Future<void> _changeTransportMode(
       Emitter<MapState> emit, VehicleType vehicleType) async {
     _vehicleType = vehicleType;
+    _markerPolyline.clear();
     await _direction(
         emit,
         LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
@@ -459,7 +469,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       return;
     }
     _isLoading = true;
-    _emitLoadedMapState(emit);
+    _removeAllPlaceMarkers(emit);
     final places =
         await _placeSearch.searchByNearByType(locationData, type, 5000);
     _placesByNear = places;
@@ -482,6 +492,19 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
         zoom: 13);
     _isLoading = false;
+    _emitLoadedMapState(emit);
+  }
+
+  Future<void> _stopTrackingDirection(Emitter<MapState> emit) async {
+    // await _backendService.stopService();
+    _isTrackingDirection = false;
+    _angelView = 0;
+    _isFollowCamera = false;
+    _zoom = 16.0;
+    _isJourneyStarted = false;
+    await _zoomToFit(
+        LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+        LatLng(_place!.latitude, _place!.longitude));
     _emitLoadedMapState(emit);
   }
 
@@ -554,7 +577,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       _isLoading = false;
       polylineCoordinates.addAll(_directionInfo?.polyline.first.points ?? []);
       _emitLoadedMapState(emit);
-      _zoomToFit(origin, destination);
+      await _zoomToFit(origin, destination);
       return;
     } catch (e) {
       emit(MapErrorState("Không thể lấy thông tin chỉ đường: ${e.toString()}"));
@@ -582,39 +605,16 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _loadedMapControllerState(
       Emitter<MapState> emit, LoadedMapControllerEvent event) async {
     _googleMapController = event.googleMapController;
-    for (Marker m in _markerUsers) {
-      _googleMapController!.showMarkerInfoWindow(m.markerId);
-    }
+    // for (Marker m in _markerUsers) {
+    //   _googleMapController!.showMarkerInfoWindow(m.markerId);
+    // }
     _location.onLocationChanged.listen((LocationData currentLocation) {
       // Cập nhật vị trí khi có sự thay đổi
       add(LocationChangedEvent(currentLocation));
     });
   }
 
-  void _updatePolylineColor(LatLng currentLatLng) {
-    visitedCoordinates.add(currentLatLng);
 
-    // Xóa polyline cũ
-    _directionInfo?.polyline.clear();
-
-    // Tạo polyline đã đi qua màu xám
-    _directionInfo?.polyline.add(Polyline(
-      polylineId: const PolylineId("visited_routes"),
-      color: Colors.red,
-      points: visitedCoordinates,
-      width: 10,
-    ));
-
-    // Tạo polyline chưa đi qua màu xanh
-    List<LatLng> remainingCoordinates =
-        polylineCoordinates.skip(visitedCoordinates.length).toList();
-    _directionInfo?.polyline.add(Polyline(
-      polylineId: const PolylineId("remaining_route"),
-      color: Colors.blue,
-      points: remainingCoordinates,
-      width: 5,
-    ));
-  }
 
   Future<void> _updateUserLocation(LocationData currentLocation) async {
     _currentPosition = currentLocation; // Cập nhật vị trí hiện tại
@@ -628,7 +628,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
           heading: bearing,
           angelView: _angelView);
     }
-    // _updatePolylineColor(LatLng(currentLocation.latitude!, currentLocation.longitude!));
+
     Battery _battery = Battery();
     // Cập nhật vị trí của người dùng
     _user.longitude = currentLocation.longitude!;
@@ -739,6 +739,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     emit(LoadingMapState());
     _initMapStyle();
     LocationData currentLocation = await _location.getLocation();
+    _currentPosition = currentLocation;
     // Kiểm tra và yêu cầu bật dịch vụ vị trí
     if (!await _isOpenLocationService(_location) ||
         !await _isAccessLocation(_location)) {
@@ -757,11 +758,10 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       return;
     }
 
-    List<Marker> markers = await _initMarker(user, _friends, currentLocation);
+    List<Marker> markers = await _initMarker(_friends, currentLocation);
     _markerUsers = markers;
     _user = user;
     // _userMove = UserMove.fromUser(user);
-    _currentPosition = currentLocation;
     _trafficEnabled = false;
     // interval là thơì gian cập nhật, distanceFilter là khoảng cách cập nhật
     // sau 2s nó sẽ kiểm tra cập nhật, nếu di chuyển 20m thì Mới thông báo
@@ -773,35 +773,35 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _initWebsocket();
   }
 
-  Future<List<Marker>> _initMarker(
-      user, friends, LocationData currentLocation) async {
+  Future<List<Marker>> _initMarker(friends, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
 
     // Sử dụng Future.wait để khởi tạo Marker của bạn bè đồng thời
     List<Future<Marker>> futureMarkers =
         friends.map<Future<Marker>>((element) async {
-      return Marker(
-        markerId: MarkerId(element.googleId),
-        position: LatLng(element.latitude, element.longitude),
-        infoWindow:
+          Marker marker = Marker(
+            markerId: MarkerId(element.googleId),
+            position: LatLng(element.latitude, element.longitude),
+            infoWindow:
             InfoWindow(title: "${element.name}, speed: ${element.speed}"),
-        icon: await createCustomMarkerBitmap(
-            element.name,
-            "${element.speed}",
-            "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}",
-            "${element.batteryLevel}",
-            "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",
-            element.avatarUrl),
-        onTap: () {
-          // Khi người dùng nhấn vào Marker, hiển thị thông tin
-          add(MarkerFriendTappedEvent(element));
-        },
-      );
+            icon: await createCustomMarkerBitmap(
+                element.name,
+                "${element.speed}",
+                "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}",
+                "${element.batteryLevel}",
+                "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",
+                element.avatarUrl),
+            onTap: () {
+              // Khi người dùng nhấn vào Marker, hiển thị thông tin
+              add(MarkerFriendTappedEvent(element));
+            },
+          );
+      return marker;
     }).toList();
-
     // Chờ tất cả các Future hoàn thành và lấy danh sách Marker
     List<Marker> friendMarkers = await Future.wait(futureMarkers);
+
 
     // Thêm Marker cho Hoàng Sa và Trường Sa
     List<Marker> staticMarkers = await _getStaticMarkers(hoangSa, truongSa);
