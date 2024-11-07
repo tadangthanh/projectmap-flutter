@@ -113,14 +113,13 @@ class PlaceSearch {
         }
       },
       'travelMode': mode.toString().split('.').last,
-      'polylineQuality': 'HIGH_QUALITY',
+      'polylineQuality': 'OVERVIEW',
       'languageCode': 'vi',
       'computeAlternativeRoutes': true,
     });
 
     // Gửi request
     final response = await http.post(url, headers: headers, body: body);
-
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final routes = data['routes'];

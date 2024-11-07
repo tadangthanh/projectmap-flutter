@@ -198,7 +198,7 @@ class _GroupListScreenState extends State<GroupListScreen>
                     ),
                     subtitle: group.description != null
                         ? Text(
-                            '${group.description}',
+                            group.description,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           )
@@ -221,7 +221,7 @@ class _GroupListScreenState extends State<GroupListScreen>
                               IconButton(
                                 onPressed: () {
                                   _groupListBloc.add(
-                                      AcceptJoinGroupEvent(groupId: group.id));
+                                      AcceptJoinGroupEvent(groupId: group.id??-1));
                                 },
                                 icon: const Icon(Icons.check,
                                     color: Colors.green),
@@ -231,7 +231,7 @@ class _GroupListScreenState extends State<GroupListScreen>
                               IconButton(
                                 onPressed: () {
                                   _groupListBloc.add(
-                                      RejectJoinGroupEvent(groupId: group.id));
+                                      RejectJoinGroupEvent(groupId: group.id??-1));
                                 },
                                 icon: const Icon(Icons.close_outlined,
                                     color: Colors.red),
@@ -275,7 +275,7 @@ class _GroupListScreenState extends State<GroupListScreen>
                                             "Bạn có chắc chắn muốn giải tán nhóm ${group.name} không?",
                                             () {
                                           _groupListBloc.add(DisbandGroupEvent(
-                                              groupId: group.id));
+                                              groupId: group.id??-1));
                                         }, null);
                                       },
                                     )

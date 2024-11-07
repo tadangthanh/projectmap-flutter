@@ -1,34 +1,27 @@
 import 'package:map/dto/base_dto.dart';
 import 'package:map/dto/user_group_status.dart';
 
-
 class GroupResponseDto extends BaseDto {
-  String? name;
-  String? description;
+  String name;
+  String description;
   int totalMembers;
   String role;
   List<String> permissions;
   UserGroupStatus status;
 
   GroupResponseDto({
-    required int id,
-    required String createdBy,
-    required String updatedBy,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    this.name,
-    this.description,
+    required super.id,
+    required super.createdBy,
+    required super.updatedBy,
+    required super.createdAt,
+    required super.updatedAt,
+    required this.name,
+    required this.description,
     required this.totalMembers,
     required this.role,
     required this.permissions,
     required this.status,
-  }) : super(
-    id: id,
-    createdBy: createdBy,
-    updatedBy: updatedBy,
-    createdAt: createdAt,
-    updatedAt: updatedAt,
-  );
+  });
 
   // Factory method to create an instance from a Map
   factory GroupResponseDto.fromMap(Map<String, dynamic> map) {
@@ -38,8 +31,8 @@ class GroupResponseDto extends BaseDto {
       updatedBy: map['updatedBy'],
       createdAt: DateTime.parse(map['createdAt']),
       updatedAt: DateTime.parse(map['updatedAt']),
-      name: map['name'] as String?,
-      description: map['description'] as String?,
+      name: map['name'],
+      description: map['description'],
       totalMembers: map['totalMembers'] ?? 0,
       role: map['role'],
       permissions: List<String>.from(map['permissions'] ?? []),

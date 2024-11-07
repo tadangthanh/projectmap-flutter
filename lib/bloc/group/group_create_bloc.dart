@@ -38,8 +38,8 @@ class GroupCreateBloc extends Bloc<GroupCreateEvent, GroupCreateState> {
     try {
       List<int> userIds = _selectedMembers.map((e) => e.id!).toList();
       GroupRequestDto groupRequestDto = GroupRequestDto(
-          name: groupName.trim().isEmpty?null:groupName.trim(),
-          description: description.trim().trim().isEmpty?null:description.trim(),
+          name: groupName.trim(),
+          description: description.trim(),
           userIds: userIds);
       GroupResponseDto groupResponseDto = await _groupService.createGroup(groupRequestDto);
       emit(GrcSuccessState(groupResponseDto: groupResponseDto));

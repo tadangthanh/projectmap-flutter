@@ -1,16 +1,16 @@
 class BaseDto {
-  int id;
-  String createdBy;
-  String updatedBy;
-  DateTime createdAt;
-  DateTime updatedAt;
+  int? id;
+  String? createdBy;
+  String? updatedBy;
+  DateTime? createdAt;
+  DateTime? updatedAt;
 
   BaseDto({
-    required this.id,
-    required this.createdBy,
-    required this.updatedBy,
-    required this.createdAt,
-    required this.updatedAt,
+     this.id,
+     this.createdBy,
+     this.updatedBy,
+     this.createdAt,
+     this.updatedAt,
   });
 
   // Phương thức fromJson để khởi tạo từ JSON
@@ -30,8 +30,8 @@ class BaseDto {
       'id': id,
       'createdBy': createdBy,
       'updatedBy': updatedBy,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 }

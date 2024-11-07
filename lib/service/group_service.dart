@@ -1,3 +1,5 @@
+import 'package:map/dto/group_location_request.dart';
+import 'package:map/dto/group_location_response.dart';
 import 'package:map/dto/group_request_dto.dart';
 import 'package:map/dto/group_response_dto.dart';
 
@@ -66,4 +68,20 @@ class GroupService {
       throw Exception(e.toString());
     }
   }
+
+  Future<List<GroupLocationResponse>> addLocationToGroups(GroupLocationRequest groupLocationRequest) async{
+    String url = "${Url.BASE_URL_V1}/groups/add-location";
+    try {
+      List<GroupLocationResponse> list = GroupLocationResponse.fromListJson(
+          await NetworkService.post(
+              url: url,
+              headers: {'Content-Type': 'application/json'},
+              body: groupLocationRequest.toMap()));
+      return list;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+
 }

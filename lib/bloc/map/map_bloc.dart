@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
+import 'package:map/dto/location_dto.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/token_response.dart';
@@ -19,16 +20,20 @@ import 'package:map/entity/user.dart';
 import 'package:map/main.dart';
 import 'package:map/repository/token_repository.dart';
 import 'package:map/service/back_service.dart';
+import 'package:map/service/group_service.dart';
 import 'package:map/service/place_search.dart';
 import 'package:map/service/user_service.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
+import '../../dto/group_location_request.dart';
+import '../../dto/group_location_response.dart';
 import '../../entity/map_theme.dart';
 import '../../entity/place_type.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
   final TokenRepo _tokenRepo = getIt<TokenRepo>();
+  final GroupService _groupService = getIt<GroupService>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   final BackendService _backendService = getIt<BackendService>();
   late User _user;
@@ -47,7 +52,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
   // marker của địa điểm tìm kiếm
   late final Set<Marker> _markersPlace = {};
-  late final List<Marker> _markerPolyline = [];
+  late final List<Marker> _markersPolyline = [];
+  late final List<Marker> _markersGroup = [];
   late Marker _placeSearchMarker = const Marker(markerId: MarkerId(''));
   late MapType _currentMapType = MapType.normal;
   final Location _location = Location();
@@ -66,9 +72,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late VehicleType _vehicleType = VehicleType.TWO_WHEELER;
   late bool _isEnabledSelectLocation = false;
   late String _style = "";
-  List<LatLng> visitedCoordinates = []; // Các điểm đã đi qua
-  List<LatLng> polylineCoordinates = []; // Các điểm polyline
-
+  List<LatLng> _visitedCoordinates = []; // Các điểm đã đi qua
+  List<LatLng> _polylineCoordinates = []; // Các điểm polyline
+  late String? _message=null;
 
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
@@ -79,7 +85,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       await _foundLocationSearch(emit, event.place);
     });
     // Lấy thông tin google map controller
-    on<LoadedMapControllerEvent>((event, emit) async {
+    on<MapControllerLoadedEvent>((event, emit) async {
       await _loadedMapControllerState(emit, event);
     });
     // lấy vị trí hiện tại
@@ -110,12 +116,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // thay đổi kiểu  bản đồ : bản đồ đường, bản đồ vệ tinh,..
     on<ChangeMapTypeEvent>((event, emit) async {
       // FlutterBackgroundService().invoke("stopService");
-
       await _changeMapType(emit, event.mapType);
     });
     //Cập nhật vị trí
     on<LocationChangedEvent>((event, emit) async {
-      await _updateLocation(emit, event.currentLocation);
+      await _onUpdateLocation(emit, event.currentLocation);
     });
     // tìm kiếm địa điểm lân cận theo loại: nhà hàng, quán cafe, trường học, bệnh viện,..
     on<FindNearByTypeEvent>((event, emit) async {
@@ -163,7 +168,145 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       await _changeMainDirection(
           event.polylineId, event.distance, event.duration, emit);
     });
+    on<LatLngTappedEvent>((event, emit) async {
+      await _latLngTappedEvent(event.location, emit);
+    });
+    // su kien them locaiton cho group
+    on<AddLocationToGroupEvent>((event, emit) async {
+      await _addLocationToGroup(event.groupLocationRequest, emit);
+    });
+    // su kien clear message
+    on<ClearMessageEvent>((event, emit) async {
+      _message = null;
+      _emitLoadedMapState(emit);
+    });
     add(InitMapEvent());
+  }
+
+  Future<void> _addLocationToGroup(
+      GroupLocationRequest groupLocationRequest, Emitter<MapState> emit) async {
+    try {
+      List<GroupLocationResponse> list =
+          await _groupService.addLocationToGroups(groupLocationRequest);
+      for (GroupLocationResponse groupLocationResponse in list) {
+        List<LocationDto> locations = groupLocationResponse.locations;
+        for (LocationDto location in locations) {
+          _markersGroup.add(Marker(
+            markerId: MarkerId(location.id.toString()),
+            position: LatLng(location.latitude, location.longitude),
+            zIndex: location.id?.toDouble()??0,
+            icon: await createCustomMarker(
+                location, groupLocationResponse.groupName),
+          ));
+        }
+      }
+      _markersPlace.clear();
+      _emitLoadedMapState(emit);
+    } catch (e) {
+      _message = e.toString();
+      _emitLoadedMapState(emit);
+    }
+  }
+
+  Future<BitmapDescriptor> createCustomMarker(
+      LocationDto location, String groupName) async {
+    // Tạo `PictureRecorder` để vẽ Canvas
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+
+    // Kích thước marker
+    const double markerWidth = 350.0;
+    const double markerHeight = 130.0;
+
+    // Màu nền (màu xanh nhạt)
+    final Paint paint = Paint()..color = Colors.lightBlueAccent;
+
+    // Vẽ hình chữ nhật chứa thông tin với màu nền
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(0, 0, markerWidth, markerHeight),
+        const Radius.circular(15),
+      ),
+      paint,
+    );
+
+    // Vẽ viền xung quanh
+    final Paint borderPaint = Paint()
+      ..color = Colors.blue
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(0, 0, markerWidth, markerHeight),
+        const Radius.circular(15),
+      ),
+      borderPaint,
+    );
+
+    // Đoạn text sẽ hiển thị
+    final TextPainter textPainter = TextPainter(
+      textDirection: ui.TextDirection.ltr,
+    );
+
+    // Thông tin tên địa điểm
+    textPainter.text = TextSpan(
+      text: '${location.name}\n',
+      style: const TextStyle(
+        fontSize: 22.0,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
+    textPainter.layout(minWidth: 0, maxWidth: markerWidth - 20);
+    textPainter.paint(canvas, const Offset(10, 10));
+
+    // Mô tả
+    textPainter.text = TextSpan(
+      text: '📄: ${location.description}\n',
+      style: const TextStyle(
+        fontSize: 18.0,
+        color: Colors.black87,
+      ),
+    );
+    textPainter.layout(minWidth: 0, maxWidth: markerWidth - 20);
+    textPainter.paint(canvas, const Offset(10, 50));
+
+    // Thông tin nhóm (Group name)
+    textPainter.text = TextSpan(
+      text: 'Nhóm: $groupName',
+      style: const TextStyle(
+        fontSize: 20.0,
+        fontWeight: FontWeight.bold,
+        color: Colors.blue,
+      ),
+    );
+    textPainter.layout(minWidth: 0, maxWidth: markerWidth - 20);
+    textPainter.paint(canvas, const Offset(10, 90));
+
+    // Kết thúc việc vẽ và tạo ảnh từ canvas
+    final ui.Image markerAsImage = await pictureRecorder.endRecording().toImage(
+          markerWidth.toInt(),
+          markerHeight.toInt(),
+        );
+
+    // Chuyển đổi ảnh thành dữ liệu byte
+    final ByteData? byteData =
+        await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
+    final Uint8List markerBytes = byteData!.buffer.asUint8List();
+
+    // Tạo `BitmapDescriptor` từ dữ liệu byte
+    return BitmapDescriptor.fromBytes(markerBytes);
+  }
+
+  Future<void> _latLngTappedEvent(
+      LatLng location, Emitter<MapState> emit) async {
+    Marker marker = Marker(
+      markerId: MarkerId(_user.googleId),
+      position: location,
+      infoWindow: const InfoWindow(title: 'Điểm đánh dấu của bạn'),
+      icon: BitmapDescriptor.defaultMarker,
+    );
+    _emitLoadedMapState(emit);
   }
 
   Future<void> _changeMapTheme(
@@ -228,7 +371,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _directionInfo!.duration = newDuration;
 
     // Xóa các Marker cũ
-    _markerPolyline.clear();
+    _markersPolyline.clear();
 
     // Tạo custom marker hiển thị thời gian
     BitmapDescriptor customMarkerBitmap = await _createCustomMarkerBitmap(
@@ -245,7 +388,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     );
 
     // Thêm Marker vào danh sách các Marker Polyline
-    _markerPolyline.add(infoMarker);
+    _markersPolyline.add(infoMarker);
     _emitLoadedMapState(emit);
   }
 
@@ -294,7 +437,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         text: '⏱️', // Icon thời gian
         style: TextStyle(fontSize: 30),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     iconPainter.layout();
     iconPainter.paint(canvas, const Offset(10, height / 4));
@@ -306,7 +449,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         style: const TextStyle(
             color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     textPainter.layout();
     textPainter.paint(canvas, const Offset(60, height / 4));
@@ -335,14 +478,14 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     await _removeAllPlaceMarkers(emit);
     _isLoading = true;
     _emitLoadedMapState(emit);
-    DirectionInfo directionInfo = await _placeSearch.getPolylinePoints(
-      LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-      location,
-      (String polylineId, String distance, String duration) {
-        add(TappedPolylineEvent(polylineId, distance, duration));
-      },
-    );
-    _directionInfo = directionInfo;
+    // DirectionInfo directionInfo = await _placeSearch.getPolylinePoints(
+    //   LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
+    //   location,
+    //   (String polylineId, String distance, String duration) {
+    //     add(TappedPolylineEvent(polylineId, distance, duration));
+    //   },
+    // );
+    // _directionInfo = directionInfo;
     _place = Place(
         placeId: '1',
         name: 'Điểm đến',
@@ -397,8 +540,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _enableSelectLocation(
       Emitter<MapState> emit, bool isEnabledSelectLocation) async {
     _isEnabledSelectLocation = isEnabledSelectLocation;
-    _place=null;
-    _placeSearchMarker=const Marker(markerId: MarkerId(''));
+    _place = null;
+    _placeSearchMarker = const Marker(markerId: MarkerId(''));
     _directionInfo = null;
     _emitLoadedMapState(emit);
   }
@@ -406,7 +549,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _changeTransportMode(
       Emitter<MapState> emit, VehicleType vehicleType) async {
     _vehicleType = vehicleType;
-    _markerPolyline.clear();
+    _markersPolyline.clear();
     await _direction(
         emit,
         LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
@@ -423,7 +566,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _emitLoadedMapState(emit);
   }
 
-  Future<void> _updateLocation(
+  Future<void> _onUpdateLocation(
       Emitter<MapState> emit, LocationData locationData) async {
     await _updateUserLocation(locationData);
     _emitLoadedMapState(emit);
@@ -450,11 +593,12 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _query = '';
     _vehicleType = VehicleType.TWO_WHEELER;
     _markersPlace.clear();
-    _markerPolyline.clear();
+    _markersPolyline.clear();
     _isEnabledSelectLocation = false;
     _placesByNear.clear();
     _angelView = 0;
     _friendTapped = null;
+    _message=null;
     _animateMapCamera(
         target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
         zoom: 16);
@@ -530,7 +674,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     List<Marker> markers = [];
     markers.addAll(_markerUsers);
     markers.addAll(_markersPlace);
-    markers.addAll(_markerPolyline);
+    markers.addAll(_markersGroup);
     emit(LoadedMapState(_currentPosition, markers, _currentMapType,
         _trafficEnabled, _isFollowCamera,
         googleMapController: _googleMapController,
@@ -543,7 +687,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         searchByNearSelectedType: _searchByNearSelectedType,
         isEnabledSelectLocation: _isEnabledSelectLocation,
         friendTapped: _friendTapped,
-        style: _style));
+        style: _style,message: _message));
   }
 
   Future<void> _animateMapCamera(
@@ -575,7 +719,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       }, mode: vehicleType);
       _directionInfo = directionInfo;
       _isLoading = false;
-      polylineCoordinates.addAll(_directionInfo?.polyline.first.points ?? []);
+      _polylineCoordinates.addAll(_directionInfo?.polyline.first.points ?? []);
       _emitLoadedMapState(emit);
       await _zoomToFit(origin, destination);
       return;
@@ -603,7 +747,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
   //khi controller của map load thì gán lại controller cho biến _googleMapController
   Future<void> _loadedMapControllerState(
-      Emitter<MapState> emit, LoadedMapControllerEvent event) async {
+      Emitter<MapState> emit, MapControllerLoadedEvent event) async {
     _googleMapController = event.googleMapController;
     // for (Marker m in _markerUsers) {
     //   _googleMapController!.showMarkerInfoWindow(m.markerId);
@@ -613,8 +757,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       add(LocationChangedEvent(currentLocation));
     });
   }
-
-
 
   Future<void> _updateUserLocation(LocationData currentLocation) async {
     _currentPosition = currentLocation; // Cập nhật vị trí hiện tại
@@ -773,35 +915,35 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _initWebsocket();
   }
 
-  Future<List<Marker>> _initMarker(friends, LocationData currentLocation) async {
+  Future<List<Marker>> _initMarker(
+      friends, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
 
     // Sử dụng Future.wait để khởi tạo Marker của bạn bè đồng thời
     List<Future<Marker>> futureMarkers =
         friends.map<Future<Marker>>((element) async {
-          Marker marker = Marker(
-            markerId: MarkerId(element.googleId),
-            position: LatLng(element.latitude, element.longitude),
-            infoWindow:
+      Marker marker = Marker(
+        markerId: MarkerId(element.googleId),
+        position: LatLng(element.latitude, element.longitude),
+        infoWindow:
             InfoWindow(title: "${element.name}, speed: ${element.speed}"),
-            icon: await createCustomMarkerBitmap(
-                element.name,
-                "${element.speed}",
-                "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}",
-                "${element.batteryLevel}",
-                "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",
-                element.avatarUrl),
-            onTap: () {
-              // Khi người dùng nhấn vào Marker, hiển thị thông tin
-              add(MarkerFriendTappedEvent(element));
-            },
-          );
+        icon: await createCustomMarkerBitmap(
+            element.name,
+            "${element.speed}",
+            "${_calculateDistance(currentLocation.latitude!, currentLocation.longitude!, element.latitude, element.longitude)}",
+            "${element.batteryLevel}",
+            "${element.lastTimeOnline.hour}:${element.lastTimeOnline.minute}",
+            element.avatarUrl),
+        onTap: () {
+          // Khi người dùng nhấn vào Marker, hiển thị thông tin
+          add(MarkerFriendTappedEvent(element));
+        },
+      );
       return marker;
     }).toList();
     // Chờ tất cả các Future hoàn thành và lấy danh sách Marker
     List<Marker> friendMarkers = await Future.wait(futureMarkers);
-
 
     // Thêm Marker cho Hoàng Sa và Trường Sa
     List<Marker> staticMarkers = await _getStaticMarkers(hoangSa, truongSa);
@@ -1042,7 +1184,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         style: const TextStyle(
             color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     userNameTextPainter.layout();
     userNameTextPainter.paint(canvas, const Offset(140, 20));
@@ -1053,7 +1195,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         text: "🚗", // Unicode icon cho tốc độ (xe ô tô)
         style: TextStyle(fontSize: 36),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     speedIconTextPainter.layout();
     speedIconTextPainter.paint(canvas, const Offset(140, 60));
@@ -1063,7 +1205,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         text: "$speed km/h",
         style: const TextStyle(color: Colors.white, fontSize: 24),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     speedTextPainter.layout();
     speedTextPainter.paint(canvas, const Offset(180, 70));
@@ -1074,7 +1216,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         text: "📏", // Unicode icon cho khoảng cách (địa điểm)
         style: TextStyle(fontSize: 36),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     distanceIconTextPainter.layout();
     distanceIconTextPainter.paint(canvas, const Offset(140, 110));
@@ -1084,7 +1226,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         text: "$distance km",
         style: const TextStyle(color: Colors.white, fontSize: 24),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     distanceTextPainter.layout();
     distanceTextPainter.paint(canvas, const Offset(180, 120));
@@ -1104,7 +1246,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         style: TextStyle(
             color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     batteryTimeTextPainter.layout();
     batteryTimeTextPainter.paint(canvas, const Offset(20, 170));
