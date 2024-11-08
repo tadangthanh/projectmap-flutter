@@ -1,9 +1,12 @@
 import 'dart:ui';
 
 import 'package:circular_menu/circular_menu.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:map/bloc/map/map_bloc.dart';
 import 'package:map/bloc/map/map_state.dart';
 import 'package:map/common_view/loading.dart';
@@ -82,7 +85,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           if (state is LoadingMapState) {
             return loading();
           } else if (state is MapErrorState) {
-            WidgetsBinding.instance.addPostFrameCallback((_){
+            WidgetsBinding.instance.addPostFrameCallback((_) {
               _showAlertDialog(state);
             });
           } else if (state is LoadedMapState) {
@@ -92,6 +95,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 children: [
                   // Bản đồ
                   GoogleMap(
+                    fortyFiveDegreeImageryEnabled: true,
                     style: state.style,
                     onTap: (latLng) {
                       BlocProvider.of<MapBloc>(context)
@@ -150,7 +154,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                         ? _buildTextFieldSearch(context, state)
                         : _buildBackSelectLocation(context, state),
                   ),
-                  !state.isJourneyStarted && !state.isEnabledSelectLocation
+                  !state.isOnJourneyStarted && !state.isEnabledSelectLocation
                       ? Positioned(
                           top: 50,
                           left: 0,
@@ -191,7 +195,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                         : const SizedBox(),
                   ),
                   // icon định vị vị trí hiện tại
-                  !state.isEnabledSelectLocation && !state.isJourneyStarted
+                  !state.isEnabledSelectLocation && !state.isOnJourneyStarted
                       ? Positioned(
                           bottom: 50,
                           right: 0,
@@ -220,7 +224,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       ? _draggableWidget(context, state)
                       : const SizedBox(),
                   // Làm mờ bản đồ và xử lý nhấn bên ngoài _buildWidgetFriend
-                  if (state.friendTapped != null)
+                  if (state.friendTapped != null || state.locationMarkerGroupTapped != null)
                     Positioned.fill(
                       child: GestureDetector(
                         onTap: () {
@@ -239,9 +243,24 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   // Hiển thị _buildWidgetFriend nếu friendTapped khác null
                   if (state.friendTapped != null)
                     _buildWidgetFriend(context, state),
-                  state.message!=null?Center(
-                    child: _showAlertDialog(state.message),
-                  ):const SizedBox(),
+                  state.message != null
+                      ? Center(
+                          child: _showAlertDialog(state.message),
+                        )
+                      : const SizedBox(),
+
+                  state.isEnableDeleteMarkerGroup
+                      ? Center(
+                          child: _showAlertDialog('Xóa thành công'),
+                        )
+                      : const SizedBox(),
+                  // Display location information only when locationMarkerGroupTapped is available
+                  if (state.locationMarkerGroupTapped != null)
+                    _buildLocationMarkerInfo(state.locationMarkerGroupTapped!,context, () {
+                      BlocProvider.of<MapBloc>(context).add(DeleteLocationGroupEvent(state.locationMarkerGroupTapped?.id??0));
+                    }, () {
+                      BlocProvider.of<MapBloc>(context).add(CloseLocationMarkerGroupTappedEvent());
+                    }),
                 ],
               ),
             );
@@ -251,6 +270,106 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
+  Widget _buildLocationMarkerInfo(LocationDto location, BuildContext context, VoidCallback onDelete, VoidCallback onClose) {
+    return Positioned(
+      top: 100,
+      left: 20,
+      right: 20,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        elevation: 5,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Title with Location Name
+              Text(
+                '\u{1F4C4} ${location.name}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueAccent,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Description
+              Text(
+                '\u{1F4DD} ${location.description}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Group Name
+              if (location.groupName != null)
+                Text(
+                  '\u{1F465}: ${location.groupName}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
+                ),
+
+              const SizedBox(height: 8),
+
+              // Created Date
+              if (location.createdAt != null)
+                Text(
+                  '\u{1F4C5} : ${DateFormat('dd/MM/yyyy HH:mm').format(location.createdAt!)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+
+              const SizedBox(height: 8),
+
+              // Created By
+              if (location.createdBy != null)
+                Text(
+                  '\u{1F464}: ${location.createdBy}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Button Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: onClose,
+                    child: const Text('Close'),
+                  ),
+                  TextButton(
+                    onPressed: (){
+                      onDelete();
+                      onClose();
+                    },
+                    child: const Text('Delete'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildListShortcut(context, state) {
     return SingleChildScrollView(
@@ -802,9 +921,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   Widget _buildJourneyActionButtons(BuildContext context, state, Place place) {
     // Hiển thị các nút dựa trên trạng thái hành trình
-    if (!state.isJourneyStarted && state.directionInfo == null) {
+    if (!state.isOnJourneyStarted && state.directionInfo == null) {
       return _buildDirectionAndMoreFeatureButtons(context, state, place);
-    } else if (state.directionInfo != null && !state.isJourneyStarted) {
+    } else if (state.directionInfo != null && !state.isOnJourneyStarted) {
       return Column(
         children: [
           // // Nút chọn lộ trình cho các loại xe
@@ -813,7 +932,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           _buildStartAndCancelButtons(context, state),
         ],
       );
-    } else if (state.isJourneyStarted) {
+    } else if (state.isOnJourneyStarted) {
       return _buildCompleteButton(context, state);
     }
 
@@ -1181,7 +1300,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (!state.isEnabledSelectLocation && !state.isJourneyStarted)
+        if (!state.isEnabledSelectLocation && !state.isOnJourneyStarted)
           SizedBox(
             width: 150, // Đặt kích thước vùng chứa đủ lớn cho menu
             height: 150,

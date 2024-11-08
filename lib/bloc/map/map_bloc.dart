@@ -11,12 +11,14 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:map/bloc/map/map_event.dart';
 import 'package:map/bloc/map/map_state.dart';
+import 'package:map/dto/group_response_dto.dart';
 import 'package:map/dto/location_dto.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/token_response.dart';
 import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
+import 'package:map/generated/assets.dart';
 import 'package:map/main.dart';
 import 'package:map/repository/token_repository.dart';
 import 'package:map/service/back_service.dart';
@@ -39,16 +41,23 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late User _user;
   late List<String> styles = [];
   late List<User> _friends = [];
+  late List<GroupResponseDto> _groups = [];
 
   // late UserMove _userMove;
   late User? _friendTapped = null;
   late TokenResponse? _tokenResponse = null;
   late StompClient _client;
-  late GoogleMapController? _googleMapController;
+  late GoogleMapController? _googleMapController = null;
   late LocationData _currentPosition;
 
+  // icon cho marker location group
+  late BitmapDescriptor _iconPinnedGroupLocation;
+
+  //icon cho marker ma nguoi dung danh dau
+  late BitmapDescriptor _iconPinnedGroupLocationOwner;
+
   // marker của bạn bè
-  late List<Marker> _markerUsers;
+  late List<Marker> _markerUsers = [];
 
   // marker của địa điểm tìm kiếm
   late final Set<Marker> _markersPlace = {};
@@ -72,9 +81,10 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   late VehicleType _vehicleType = VehicleType.TWO_WHEELER;
   late bool _isEnabledSelectLocation = false;
   late String _style = "";
-  List<LatLng> _visitedCoordinates = []; // Các điểm đã đi qua
   List<LatLng> _polylineCoordinates = []; // Các điểm polyline
-  late String? _message=null;
+  late String? _message = null;
+  late List<GroupLocationResponse> _groupLocations = [];
+  late LocationDto? _locationMarkerGroupTapped = null;
 
   MapBloc() : super(LoadingMapState()) {
     on<InitMapEvent>((event, emit) async {
@@ -177,135 +187,62 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     // su kien clear message
     on<ClearMessageEvent>((event, emit) async {
-      _message = null;
+      _removeAllPlaceMarkers(emit);
+    });
+    // su kien tap vao marker group
+    on<MarkerLocationGroupTappedEvent>((event, emit) async {
+      _markerGroupTapped(event.locationDto,emit);
+    });
+    // su kien dong marker group location info
+    on<CloseLocationMarkerGroupTappedEvent>((event, emit) async {
+      _locationMarkerGroupTapped = null;
       _emitLoadedMapState(emit);
+    });
+    // su kien xoa marker group location
+    on<DeleteLocationGroupEvent>((event, emit) async {
+      await _deleteLocationGroup(event.locationId, emit);
     });
     add(InitMapEvent());
   }
-
-  Future<void> _addLocationToGroup(
-      GroupLocationRequest groupLocationRequest, Emitter<MapState> emit) async {
+  Future<void> _deleteLocationGroup(int locationId, Emitter<MapState> emit) async {
     try {
-      List<GroupLocationResponse> list =
-          await _groupService.addLocationToGroups(groupLocationRequest);
-      for (GroupLocationResponse groupLocationResponse in list) {
-        List<LocationDto> locations = groupLocationResponse.locations;
-        for (LocationDto location in locations) {
-          _markersGroup.add(Marker(
-            markerId: MarkerId(location.id.toString()),
-            position: LatLng(location.latitude, location.longitude),
-            zIndex: location.id?.toDouble()??0,
-            icon: await createCustomMarker(
-                location, groupLocationResponse.groupName),
-          ));
-        }
-      }
-      _markersPlace.clear();
+      await _groupService.deleteLocationGroup(locationId);
+      _markersGroup.removeWhere((element) => element.markerId.value == locationId.toString());
+      _groupLocations.removeWhere((element) => element.locations.any((element) => element.id == locationId));
       _emitLoadedMapState(emit);
     } catch (e) {
-      _message = e.toString();
+      _message = e.toString().split("Exception: ").last;
       _emitLoadedMapState(emit);
     }
   }
 
-  Future<BitmapDescriptor> createCustomMarker(
-      LocationDto location, String groupName) async {
-    // Tạo `PictureRecorder` để vẽ Canvas
-    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-    final Canvas canvas = Canvas(pictureRecorder);
+  Future<void> _markerGroupTapped(LocationDto locationDto ,Emitter<MapState> emit) async{
+    for (var group in _groupLocations) {
+      for (var location in group.locations) {
+        if (location.id == locationDto.id) {
+          _locationMarkerGroupTapped = location;
+          break;
+        }
+      }
+    }
+    _emitLoadedMapState(emit);
+  }
 
-    // Kích thước marker
-    const double markerWidth = 350.0;
-    const double markerHeight = 130.0;
 
-    // Màu nền (màu xanh nhạt)
-    final Paint paint = Paint()..color = Colors.lightBlueAccent;
-
-    // Vẽ hình chữ nhật chứa thông tin với màu nền
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(0, 0, markerWidth, markerHeight),
-        const Radius.circular(15),
-      ),
-      paint,
-    );
-
-    // Vẽ viền xung quanh
-    final Paint borderPaint = Paint()
-      ..color = Colors.blue
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(0, 0, markerWidth, markerHeight),
-        const Radius.circular(15),
-      ),
-      borderPaint,
-    );
-
-    // Đoạn text sẽ hiển thị
-    final TextPainter textPainter = TextPainter(
-      textDirection: ui.TextDirection.ltr,
-    );
-
-    // Thông tin tên địa điểm
-    textPainter.text = TextSpan(
-      text: '${location.name}\n',
-      style: const TextStyle(
-        fontSize: 22.0,
-        fontWeight: FontWeight.bold,
-        color: Colors.black,
-      ),
-    );
-    textPainter.layout(minWidth: 0, maxWidth: markerWidth - 20);
-    textPainter.paint(canvas, const Offset(10, 10));
-
-    // Mô tả
-    textPainter.text = TextSpan(
-      text: '📄: ${location.description}\n',
-      style: const TextStyle(
-        fontSize: 18.0,
-        color: Colors.black87,
-      ),
-    );
-    textPainter.layout(minWidth: 0, maxWidth: markerWidth - 20);
-    textPainter.paint(canvas, const Offset(10, 50));
-
-    // Thông tin nhóm (Group name)
-    textPainter.text = TextSpan(
-      text: 'Nhóm: $groupName',
-      style: const TextStyle(
-        fontSize: 20.0,
-        fontWeight: FontWeight.bold,
-        color: Colors.blue,
-      ),
-    );
-    textPainter.layout(minWidth: 0, maxWidth: markerWidth - 20);
-    textPainter.paint(canvas, const Offset(10, 90));
-
-    // Kết thúc việc vẽ và tạo ảnh từ canvas
-    final ui.Image markerAsImage = await pictureRecorder.endRecording().toImage(
-          markerWidth.toInt(),
-          markerHeight.toInt(),
-        );
-
-    // Chuyển đổi ảnh thành dữ liệu byte
-    final ByteData? byteData =
-        await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
-    final Uint8List markerBytes = byteData!.buffer.asUint8List();
-
-    // Tạo `BitmapDescriptor` từ dữ liệu byte
-    return BitmapDescriptor.fromBytes(markerBytes);
+  Future<void> _addLocationToGroup(
+      GroupLocationRequest groupLocationRequest, Emitter<MapState> emit) async {
+    try {
+      await _groupService.addLocationToGroups(groupLocationRequest);
+      _markersPlace.clear();
+      _emitLoadedMapState(emit);
+    } catch (e) {
+      _message = e.toString().split("Exception: ").last;
+      _emitLoadedMapState(emit);
+    }
   }
 
   Future<void> _latLngTappedEvent(
       LatLng location, Emitter<MapState> emit) async {
-    Marker marker = Marker(
-      markerId: MarkerId(_user.googleId),
-      position: location,
-      infoWindow: const InfoWindow(title: 'Điểm đánh dấu của bạn'),
-      icon: BitmapDescriptor.defaultMarker,
-    );
     _emitLoadedMapState(emit);
   }
 
@@ -598,7 +535,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _placesByNear.clear();
     _angelView = 0;
     _friendTapped = null;
-    _message=null;
+    _message = null;
+    _locationMarkerGroupTapped = null;
     _animateMapCamera(
         target: LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
         zoom: 16);
@@ -680,14 +618,16 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         googleMapController: _googleMapController,
         query: _query,
         isLoading: _isLoading,
-        isJourneyStarted: _isJourneyStarted,
+        isOnJourneyStarted: _isJourneyStarted,
         directionInfo: _directionInfo,
         place: _place,
         vehicleType: _vehicleType,
         searchByNearSelectedType: _searchByNearSelectedType,
         isEnabledSelectLocation: _isEnabledSelectLocation,
         friendTapped: _friendTapped,
-        style: _style,message: _message));
+        style: _style,
+        locationMarkerGroupTapped: _locationMarkerGroupTapped,
+        message: _message));
   }
 
   Future<void> _animateMapCamera(
@@ -749,11 +689,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   Future<void> _loadedMapControllerState(
       Emitter<MapState> emit, MapControllerLoadedEvent event) async {
     _googleMapController = event.googleMapController;
-    // for (Marker m in _markerUsers) {
-    //   _googleMapController!.showMarkerInfoWindow(m.markerId);
-    // }
+    _emitLoadedMapState(emit);
+    // update location on change
     _location.onLocationChanged.listen((LocationData currentLocation) {
-      // Cập nhật vị trí khi có sự thay đổi
       add(LocationChangedEvent(currentLocation));
     });
   }
@@ -810,19 +748,56 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
   }
 
-  void _onConnect(StompFrame frame) {
+  void _onConnect(StompFrame frame) async {
+    _groups = await _groupService.getGroups();
     if (_client.isActive) {
       _client.subscribe(
         headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
         destination: '/user/private/friend-location',
-        callback: onListenWs,
+        callback: _onListenWs,
       );
+      for (var gr in _groups) {
+        _client.subscribe(
+          headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+          destination: '/topic/group-location/${gr.id}',
+          callback: _onListenGroupLocation,
+        );
+      }
     } else {
       print("Cannot subscribe because connection is not active.");
     }
   }
 
-  void onListenWs(StompFrame frame) async {
+  void _onListenGroupLocation(StompFrame frame) async {
+    if (frame.body != null) {
+      // Parse String JSON thành List<dynamic>
+      List<dynamic> jsonList = jsonDecode(frame.body!);
+      // Sử dụng fromListJson để chuyển đổi thành danh sách GroupLocationResponse
+      List<GroupLocationResponse> groupLocations =
+          GroupLocationResponse.fromListJson(jsonList);
+      _groupLocations.addAll(groupLocations);
+      for (var glc in groupLocations) {
+        List<LocationDto> locations = glc.locations;
+        for (var location in locations) {
+          _markersGroup.add(Marker(
+            markerId: MarkerId(location.id.toString()),
+            position: LatLng(location.latitude, location.longitude),
+            zIndex: location.id?.toDouble() ?? 0,
+            icon: location.createdBy == _user.email
+                ? _iconPinnedGroupLocationOwner
+                : _iconPinnedGroupLocation,
+            onTap: () {
+              add(MarkerLocationGroupTappedEvent(location));
+            },
+            consumeTapEvents: true,
+          ));
+        }
+      }
+      add(UpdateMarkersEvent());
+    }
+  }
+
+  void _onListenWs(StompFrame frame) async {
     if (frame.body != null) {
       User userFriend = User.fromMap(jsonDecode(frame.body!));
       for (int i = 0; i < _markerUsers.length; i++) {
@@ -876,47 +851,96 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     return degree * pi / 180;
   }
 
+  Future<void> _initToken(Emitter<MapState> emit) async {
+    _tokenResponse = await _tokenRepo.getToken();
+    if (_tokenResponse == null) {
+      emit(MapErrorState("Token không tồn tại"));
+      return;
+    }
+  }
+
+  Future<void> _initUserAndFriend(Emitter<MapState> emit) async {
+    // Lấy thông tin người dùng
+    User? user = await _userService.getUser();
+    // Lấy danh sách bạn bè
+    _friends = await _userService.getAllFriends();
+    if (user == null) {
+      emit(LoadingMapState());
+      return;
+    }
+    _user = user;
+  }
+
   Future<void> _init(Emitter<MapState> emit) async {
     // FlutterBackgroundService().invoke("setAsForeground");
     emit(LoadingMapState());
     _initMapStyle();
-    LocationData currentLocation = await _location.getLocation();
-    _currentPosition = currentLocation;
     // Kiểm tra và yêu cầu bật dịch vụ vị trí
     if (!await _isOpenLocationService(_location) ||
         !await _isAccessLocation(_location)) {
       emit(LoadingMapState());
       return;
     }
-    User? user = await _userService.getUser();
-    _friends = await _userService.getAllFriends();
-    if (user == null) {
-      emit(LoadingMapState());
-      return;
-    }
-    _tokenResponse = await _tokenRepo.getToken();
-    if (_tokenResponse == null) {
-      emit(MapErrorState("Token không tồn tại"));
-      return;
-    }
-
-    List<Marker> markers = await _initMarker(_friends, currentLocation);
-    _markerUsers = markers;
-    _user = user;
-    // _userMove = UserMove.fromUser(user);
+    // Lấy vị trí hiện tại
+    LocationData currentLocation = await _location.getLocation();
+    _currentPosition = currentLocation;
     _trafficEnabled = false;
+    await _initUserAndFriend(emit);
+    // init _tokenResponse
+    await _initToken(emit);
+    // init  _markerUsers
+    await _initMarker(_friends, currentLocation);
     // interval là thơì gian cập nhật, distanceFilter là khoảng cách cập nhật
     // sau 2s nó sẽ kiểm tra cập nhật, nếu di chuyển 20m thì Mới thông báo
     _location.changeSettings(
         interval: 1000, distanceFilter: 5, accuracy: LocationAccuracy.high);
-    emit(LoadedMapState(currentLocation, markers, _currentMapType,
-        _trafficEnabled, _isFollowCamera,
-        googleMapController: null));
+    _iconPinnedGroupLocation = await _customMarker(Assets.iconsIconLocationPin);
+    _iconPinnedGroupLocationOwner =
+        await _customMarker(Assets.iconsIconLocationPinGreen);
+    // init _groupLocations
+    await _initGroupLocations(emit);
+    // init marker location group
+    await _initMarkerGroupLocation(_groupLocations);
+
+    emit(LoadedMapState(
+      currentLocation,
+      _markerUsers,
+      _currentMapType,
+      _trafficEnabled,
+      _isFollowCamera,
+      googleMapController: null,
+    ));
     _initWebsocket();
   }
 
-  Future<List<Marker>> _initMarker(
-      friends, LocationData currentLocation) async {
+  Future<void> _initGroupLocations(Emitter<MapState> emit) async {
+    _groupLocations = await _groupService.getGroupLocations();
+  }
+
+  Future<void> _initMarkerGroupLocation(
+      List<GroupLocationResponse> groupLocations) async {
+    List<Marker> result = [];
+    for (var glc in groupLocations) {
+      List<LocationDto> locations = glc.locations;
+      for (var location in locations) {
+        result.add(Marker(
+          markerId: MarkerId(location.id.toString()),
+          position: LatLng(location.latitude, location.longitude),
+          zIndex: location.id?.toDouble() ?? 0,
+          icon: location.createdBy == _user.email
+              ? _iconPinnedGroupLocationOwner
+              : _iconPinnedGroupLocation,
+          onTap: () {
+            add(MarkerLocationGroupTappedEvent(location));
+          },
+          consumeTapEvents: true,
+        ));
+      }
+    }
+    _markersGroup.addAll(result);
+  }
+
+  Future<void> _initMarker(friends, LocationData currentLocation) async {
     const LatLng hoangSa = LatLng(16.1, 111.5); // Tọa độ gần Hoàng Sa
     const LatLng truongSa = LatLng(12.5, 114.5); // Tọa độ gần Trường Sa
 
@@ -949,7 +973,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     List<Marker> staticMarkers = await _getStaticMarkers(hoangSa, truongSa);
 
     // Kết hợp tất cả các Marker
-    return [...friendMarkers, ...staticMarkers];
+    _markerUsers.addAll([...friendMarkers, ...staticMarkers]);
   }
 
   Future<List<Marker>> _getStaticMarkers(
@@ -1016,83 +1040,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         zoom: _zoom,
         angelView: _angelView,
         heading: bearing);
-  }
-
-  Future<BitmapDescriptor> _convertAvatarUrlToBitMapDescriptor(
-      String url) async {
-    // Tải ảnh từ URL
-    if (url.isEmpty) {
-      return BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(35, 35)),
-        'assets/icons/user-location.png',
-      );
-    }
-
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      final Uint8List imageData = response.bodyBytes;
-
-      // Tải dữ liệu ảnh thành `ui.Image`
-      final ui.Codec codec = await ui.instantiateImageCodec(imageData,
-          targetWidth: 70,
-          targetHeight: 70); // Mở rộng kích thước để thêm hiệu ứng sáng
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
-      final ui.Image image = frameInfo.image;
-
-      // Khởi tạo `PictureRecorder` và `Canvas`
-      final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
-      final Canvas canvas = Canvas(pictureRecorder);
-      final double size = 70.0; // Kích thước tăng lên để vẽ cả vòng sáng
-
-      // Vẽ vòng sáng xung quanh
-      final Paint glowPaint = Paint()
-        ..color = Colors.blueAccent.withOpacity(0.5)
-        ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(
-            BlurStyle.normal, 15.0); // Hiệu ứng blur để tạo vòng sáng
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2, glowPaint);
-
-      // Vẽ hình tròn chứa ảnh avatar
-      final Paint circlePaint = Paint()..color = Colors.transparent;
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2, circlePaint);
-
-      // Tạo `Path` cho hình tròn để cắt ảnh
-      final Path clipPath = Path()
-        ..addOval(Rect.fromLTWH((size - 50) / 2, (size - 50) / 2, 50, 50));
-      canvas.clipPath(clipPath);
-
-      // Vẽ ảnh đã tải lên `Canvas`
-      canvas.drawImageRect(
-        image,
-        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-        Rect.fromLTWH((size - 50) / 2, (size - 50) / 2, 50, 50),
-        // Kích thước nhỏ hơn để vẽ avatar vào trong vòng sáng
-        Paint(),
-      );
-
-      // Chuyển `Picture` thành `Image`
-      final ui.Image finalImage = await pictureRecorder
-          .endRecording()
-          .toImage(size.toInt(), size.toInt());
-
-      // Chuyển đổi `Image` thành `ByteData`
-      final ByteData? byteData =
-          await finalImage.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        throw Exception('Failed to convert image to ByteData');
-      }
-
-      // Chuyển đổi `ByteData` thành `Uint8List`
-      final Uint8List finalImageData = byteData.buffer.asUint8List();
-
-      // Trả về `BitmapDescriptor` từ dữ liệu hình ảnh
-      return BitmapDescriptor.fromBytes(finalImageData);
-    } else {
-      return BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(35, 35)),
-        'assets/icons/user-location.png',
-      );
-    }
   }
 
   Map<String, ui.Image> _cacheImages = {};
@@ -1275,7 +1222,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     return BitmapDescriptor.asset(
         const ImageConfiguration(
           devicePixelRatio: 2.5,
-          size: Size(48, 48),
+          size: Size(60, 60),
         ),
         urlAsset);
   }

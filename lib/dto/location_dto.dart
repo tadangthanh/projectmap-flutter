@@ -5,6 +5,8 @@ class LocationDto extends BaseDto {
   double longitude;
   String name;
   String description;
+  String? groupName;
+  int? groupId;
 
   LocationDto({
     int? id,
@@ -16,6 +18,8 @@ class LocationDto extends BaseDto {
     required this.longitude,
     required this.name,
     required this.description,
+    this.groupName,
+    this.groupId,
   }) : super(
     id: id,
     createdBy: createdBy,
@@ -34,6 +38,8 @@ class LocationDto extends BaseDto {
       'longitude': longitude,
       'name': name,
       'description': description,
+      'groupName': groupName,
+      'groupId': groupId,
     };
   }
 
@@ -49,6 +55,8 @@ class LocationDto extends BaseDto {
       longitude: json['longitude'],
       name: json['name'],
       description: json['description'],
+      groupName: json['groupName'],
+      groupId: json['groupId'],
     );
   }
 
@@ -61,6 +69,8 @@ class LocationDto extends BaseDto {
       'longitude': longitude,
       'name': name,
       'description': description,
+      'groupName': groupName,
+      'groupId': groupId,
     };
   }
 }

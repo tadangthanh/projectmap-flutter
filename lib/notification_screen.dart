@@ -206,7 +206,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               ),
             ),
             subtitle: Text(
-              notification._message,
+              notification.message,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: notification.isRead ? Colors.grey : Colors.black87,

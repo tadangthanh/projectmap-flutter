@@ -61,15 +61,14 @@ class GroupService {
     String url = "${Url.BASE_URL_V1}/groups/$id/reject-join-request";
     try {
       await NetworkService.delete(
-          url: url,
-          headers: {'Content-Type': 'application/json'},
-          body: {});
+          url: url, headers: {'Content-Type': 'application/json'}, body: {});
     } catch (e) {
       throw Exception(e.toString());
     }
   }
 
-  Future<List<GroupLocationResponse>> addLocationToGroups(GroupLocationRequest groupLocationRequest) async{
+  Future<List<GroupLocationResponse>> addLocationToGroups(
+      GroupLocationRequest groupLocationRequest) async {
     String url = "${Url.BASE_URL_V1}/groups/add-location";
     try {
       List<GroupLocationResponse> list = GroupLocationResponse.fromListJson(
@@ -83,5 +82,24 @@ class GroupService {
     }
   }
 
-
+  Future<List<GroupLocationResponse>> getGroupLocations() async {
+    String url = "${Url.BASE_URL_V1}/groups/locations";
+    try {
+      List<GroupLocationResponse> list = GroupLocationResponse.fromListJson(
+          await NetworkService.get(
+              url: url, headers: {'Content-Type': 'application/json'}));
+      return list;
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+  Future<void> deleteLocationGroup(int locationId) async {
+    String url = "${Url.BASE_URL_V1}/groups/locations/$locationId";
+    try {
+      await NetworkService.delete(
+          url: url, headers: {'Content-Type': 'application/json'}, body: {});
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
 }

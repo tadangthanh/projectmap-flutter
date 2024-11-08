@@ -9,6 +9,7 @@ import 'package:map/entity/travel_mode_enum.dart';
 import 'package:map/entity/user.dart';
 
 import '../../dto/group_location_request.dart';
+import '../../dto/location_dto.dart';
 import '../../entity/place_type.dart';
 
 class MapEvent {}
@@ -121,4 +122,17 @@ class AddLocationToGroupEvent extends MapEvent {
   final GroupLocationRequest groupLocationRequest;
   AddLocationToGroupEvent(this.groupLocationRequest);
 }
-class ClearMessageEvent extends MapEvent {}
+class ClearMessageEvent extends MapEvent {
+
+}
+class MarkerLocationGroupTappedEvent extends MapEvent {
+  final LocationDto locationDto;
+  MarkerLocationGroupTappedEvent(this.locationDto);
+}
+class CloseLocationMarkerGroupTappedEvent extends MapEvent {
+  CloseLocationMarkerGroupTappedEvent();
+}
+class DeleteLocationGroupEvent extends MapEvent {
+  final int locationId;
+  DeleteLocationGroupEvent(this.locationId);
+}
