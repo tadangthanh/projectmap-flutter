@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:map/dto/shared_location_request.dart';
 import 'package:map/entity/direction_info.dart';
 import 'package:map/entity/map_theme.dart';
 import 'package:map/entity/place.dart';
@@ -89,7 +90,7 @@ class SelectLocationEvent extends MapEvent {
 }
 // sự kiện chọn vị trí trên bản đồ
 class SelectedLocationEvent extends MapEvent {
-  final LatLng location;
+  final LocationDto location;
   SelectedLocationEvent(this.location);
 }
 
@@ -135,4 +136,8 @@ class CloseLocationMarkerGroupTappedEvent extends MapEvent {
 class DeleteLocationGroupEvent extends MapEvent {
   final int locationId;
   DeleteLocationGroupEvent(this.locationId);
+}
+class SharedLocationEvent extends MapEvent {
+  final SharedLocationRequest sharedLocationRequest;
+  SharedLocationEvent(this.sharedLocationRequest);
 }

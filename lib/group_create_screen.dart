@@ -42,6 +42,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     return BlocProvider(
       create: (context) => _groupCreateBloc,
       child: Scaffold(
+        resizeToAvoidBottomInset: true, // Adjust layout when keyboard is open
         appBar: AppBar(
           leading: _showAppBarActions
               ? IconButton(
@@ -62,7 +63,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   description: _descriptionController.text,
                 ));
               },
-              child: const Text('Tạo', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Tạo',
+                style: TextStyle(
+                    color: Colors.blue, fontWeight: FontWeight.bold),
+              ),
             ),
           ]
               : [],
@@ -86,14 +91,14 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 );
                 Navigator.of(context).pop();
                 Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => GroupListScreen()),
+                  MaterialPageRoute(builder: (context) => const GroupListScreen()),
                 );
               });
             } else if (state is GrcSuccessState) {
-             WidgetsBinding.instance.addPostFrameCallback((_) {
-               ScaffoldMessenger.of(context).showSnackBar(
-                 const SnackBar(
-                   content: Column(
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -105,36 +110,40 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                         ),
                         Text('Vui lòng chờ xác nhận từ các thành viên khác'),
                       ],
-                   ),
-                   duration: Duration(seconds: 10),
-                 ),
-               );
-               Navigator.of(context).pop();
-               Navigator.of(context).pushReplacement(
-                 MaterialPageRoute(builder: (context) => GroupListScreen()),
-               );
-             });
+                    ),
+                    duration: Duration(seconds: 10),
+                  ),
+                );
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const GroupListScreen()),
+                );
+              });
             } else if (state is GrcLoadedState) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+              return SingleChildScrollView(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildTextField(
                       controller: _groupNameController,
-                      label: 'Tên nhóm (không bắt buộc)',
+                      label: 'Tên nhóm',
+                      maxLength: 20,
                       icon: Icons.group,
                     ),
                     const SizedBox(height: 15),
                     _buildTextField(
                       controller: _descriptionController,
-                      label: 'Mô tả (không bắt buộc)',
+                      label: 'Mô tả',
+                      maxLength: 255,
                       icon: Icons.description,
                     ),
                     const SizedBox(height: 15),
                     _buildTextField(
                       controller: _searchController,
                       label: 'Email, tên bạn bè',
+                      maxLength: 255,
                       icon: Icons.search,
                       onChanged: (value) {
                         _groupCreateBloc.add(GrcSearchEvent(query: value));
@@ -143,7 +152,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                     const SizedBox(height: 20),
                     Text(
                       'Thành viên đã chọn:',
-                      style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium!
+                          .copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
                     Wrap(
@@ -157,9 +169,12 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                           ),
                           label: Text(
                             member.name,
-                            style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.w500),
                           ),
-                          deleteIcon: const Icon(Icons.close, color: Colors.red),
+                          deleteIcon:
+                          const Icon(Icons.close, color: Colors.red),
                           onDeleted: () => _removeMember(member),
                         );
                       }).toList(),
@@ -167,10 +182,14 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                     const SizedBox(height: 20),
                     Text(
                       'Gợi ý thành viên:',
-                      style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium!
+                          .copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
-                    Expanded(
+                    SizedBox(
+                      height: 300, // Set a fixed height for member suggestion list
                       child: _listMemberSuggestionBuilder(context, state),
                     ),
                   ],
@@ -188,9 +207,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    required int maxLength,
     Function(String)? onChanged,
   }) {
-    return TextField(
+    return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
@@ -199,11 +219,19 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           borderRadius: BorderRadius.circular(10.0),
         ),
       ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Vui lòng nhập $label';
+        }
+        return null;
+      },
+      maxLength: maxLength,
       onChanged: onChanged,
     );
   }
 
-  Widget _listMemberSuggestionBuilder(BuildContext context, GroupCreateState state) {
+  Widget _listMemberSuggestionBuilder(
+      BuildContext context, GroupCreateState state) {
     if (state is GrcLoadedState) {
       List<User> friends = state.friends;
       List<User> selectedMembers = state.selectedMembers;
@@ -215,7 +243,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           return Card(
             elevation: 3,
             margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
             child: ListTile(
               leading: CircleAvatar(
                 backgroundImage: NetworkImage(member.avatarUrl),

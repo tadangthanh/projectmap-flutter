@@ -6,7 +6,9 @@ import 'package:map/common_view/loading.dart';
 import 'package:map/dto/group_response_dto.dart';
 
 class MarkerInfoScreen extends StatefulWidget {
-  final Function(String name, String description, List<GroupResponseDto> sharedGroups) onSave;
+  final Function(
+          String name, String description, List<GroupResponseDto> sharedGroups)
+      onSave;
 
   MarkerInfoScreen({required this.onSave});
 
@@ -69,6 +71,7 @@ class _MarkerInfoScreenState extends State<MarkerInfoScreen> {
                           }
                           return null;
                         },
+                        maxLength: 20,
                       ),
                       const SizedBox(height: 16.0),
                       TextFormField(
@@ -77,6 +80,7 @@ class _MarkerInfoScreenState extends State<MarkerInfoScreen> {
                           labelText: 'Mô tả',
                           border: OutlineInputBorder(),
                         ),
+                        maxLength: 50,
                         maxLines: 3,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -98,7 +102,8 @@ class _MarkerInfoScreenState extends State<MarkerInfoScreen> {
                           children: groupsJoined.map((group) {
                             return CheckboxListTile(
                               title: Text(group.name),
-                              subtitle: Text("Số thành viên: ${group.totalMembers}"),
+                              subtitle:
+                                  Text("Số thành viên: ${group.totalMembers}"),
                               value: _selectedGroupsStatus[group],
                               onChanged: (bool? value) {
                                 setState(() {
@@ -110,17 +115,22 @@ class _MarkerInfoScreenState extends State<MarkerInfoScreen> {
                         ),
                       ),
                       ElevatedButton(
-                        onPressed: _selectedGroupsStatus.keys.every((element) => !_selectedGroupsStatus[element]!)
+                        onPressed: _selectedGroupsStatus.keys.every(
+                                (element) => !_selectedGroupsStatus[element]!)
                             ? null
                             : () {
                                 if (_formKey.currentState!.validate()) {
                                   List<GroupResponseDto> sharedGroups = [];
-                                  for (var group in _selectedGroupsStatus.keys) {
+                                  for (var group
+                                      in _selectedGroupsStatus.keys) {
                                     if (_selectedGroupsStatus[group]!) {
                                       sharedGroups.add(group);
                                     }
                                   }
-                                  widget.onSave(_nameController.text, _descriptionController.text, sharedGroups);
+                                  widget.onSave(
+                                      _nameController.text,
+                                      _descriptionController.text,
+                                      sharedGroups);
                                   Navigator.of(context).pop();
                                 }
                               },

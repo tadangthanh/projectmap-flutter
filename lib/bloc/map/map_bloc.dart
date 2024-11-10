@@ -24,11 +24,14 @@ import 'package:map/repository/token_repository.dart';
 import 'package:map/service/back_service.dart';
 import 'package:map/service/group_service.dart';
 import 'package:map/service/place_search.dart';
+import 'package:map/service/shared_location_service.dart';
 import 'package:map/service/user_service.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 import '../../dto/group_location_request.dart';
 import '../../dto/group_location_response.dart';
+import '../../dto/shared_location_dto.dart';
+import '../../dto/shared_location_request.dart';
 import '../../entity/map_theme.dart';
 import '../../entity/place_type.dart';
 
@@ -36,6 +39,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final UserService _userService = getIt<UserService>();
   final TokenRepo _tokenRepo = getIt<TokenRepo>();
   final GroupService _groupService = getIt<GroupService>();
+  final SharedLocationService _sharedLocationService =
+      getIt<SharedLocationService>();
   final PlaceSearch _placeSearch = getIt<PlaceSearch>();
   final BackendService _backendService = getIt<BackendService>();
   late User _user;
@@ -191,7 +196,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     // su kien tap vao marker group
     on<MarkerLocationGroupTappedEvent>((event, emit) async {
-      _markerGroupTapped(event.locationDto,emit);
+      _markerGroupTapped(event.locationDto, emit);
     });
     // su kien dong marker group location info
     on<CloseLocationMarkerGroupTappedEvent>((event, emit) async {
@@ -202,13 +207,17 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     on<DeleteLocationGroupEvent>((event, emit) async {
       await _deleteLocationGroup(event.locationId, emit);
     });
+    // su kien chia se dia diem cho ban be
+    on<SharedLocationEvent>((event, emit) async {
+      await _sharedLocation(event.sharedLocationRequest, emit);
+    });
     add(InitMapEvent());
   }
-  Future<void> _deleteLocationGroup(int locationId, Emitter<MapState> emit) async {
+
+  Future<void> _sharedLocation(SharedLocationRequest sharedLocationRequest,
+      Emitter<MapState> emit) async {
     try {
-      await _groupService.deleteLocationGroup(locationId);
-      _markersGroup.removeWhere((element) => element.markerId.value == locationId.toString());
-      _groupLocations.removeWhere((element) => element.locations.any((element) => element.id == locationId));
+      await _sharedLocationService.shareLocation(sharedLocationRequest);
       _emitLoadedMapState(emit);
     } catch (e) {
       _message = e.toString().split("Exception: ").last;
@@ -216,7 +225,23 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
   }
 
-  Future<void> _markerGroupTapped(LocationDto locationDto ,Emitter<MapState> emit) async{
+  Future<void> _deleteLocationGroup(
+      int locationId, Emitter<MapState> emit) async {
+    try {
+      await _groupService.deleteLocationGroup(locationId);
+      _markersGroup.removeWhere(
+          (element) => element.markerId.value == locationId.toString());
+      _groupLocations.removeWhere((element) =>
+          element.locations.any((element) => element.id == locationId));
+      _emitLoadedMapState(emit);
+    } catch (e) {
+      _message = e.toString().split("Exception: ").last;
+      _emitLoadedMapState(emit);
+    }
+  }
+
+  Future<void> _markerGroupTapped(
+      LocationDto locationDto, Emitter<MapState> emit) async {
     for (var group in _groupLocations) {
       for (var location in group.locations) {
         if (location.id == locationDto.id) {
@@ -227,7 +252,6 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
     _emitLoadedMapState(emit);
   }
-
 
   Future<void> _addLocationToGroup(
       GroupLocationRequest groupLocationRequest, Emitter<MapState> emit) async {
@@ -411,7 +435,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
 
   Future<void> _selectedLocation(
-      Emitter<MapState> emit, LatLng location) async {
+      Emitter<MapState> emit, LocationDto location) async {
     await _removeAllPlaceMarkers(emit);
     _isLoading = true;
     _emitLoadedMapState(emit);
@@ -425,8 +449,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     // _directionInfo = directionInfo;
     _place = Place(
         placeId: '1',
-        name: 'Điểm đến',
-        formattedAddress: '',
+        name: location.name,
+        formattedAddress: location.description,
         latitude: location.latitude,
         longitude: location.longitude);
     _markersPlace.add(Marker(
@@ -434,14 +458,14 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         add(MarkerTappedEvent(_place!));
       },
       markerId: MarkerId(_place!.placeId),
-      position: location,
+      position: LatLng(_place!.latitude, _place!.longitude),
       infoWindow: InfoWindow(title: _place!.name),
       icon: BitmapDescriptor.defaultMarker,
     ));
     _isLoading = false;
     _emitLoadedMapState(emit);
     _zoomToFit(LatLng(_currentPosition.latitude!, _currentPosition.longitude!),
-        location);
+        LatLng(_place!.latitude, _place!.longitude));
   }
 
   // zoom để nhìn thấy điểm đầu và điểm kết thúc
@@ -627,7 +651,10 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         friendTapped: _friendTapped,
         style: _style,
         locationMarkerGroupTapped: _locationMarkerGroupTapped,
-        message: _message));
+        message: _message,
+        groups: _groups,
+        user: _user,
+        friends: _friends));
   }
 
   Future<void> _animateMapCamera(
@@ -748,27 +775,109 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
   }
 
+  void _subscribeListenFriendLOnChangeLocation() {
+    _client.subscribe(
+      headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+      destination: '/user/private/friend-location',
+      callback: _onChangeFriendLocation,
+    );
+  }
+
+  void _subscribeListenGroupDeletedLocation(int groupId) {
+    _client.subscribe(
+      headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+      destination: '/topic/group-location-deleted/$groupId',
+      callback: _onListenDeletedGroupLocation,
+    );
+  }
+
+  // lang nghe su kien khi co gr duoc tao moi thi them vao danh sach lang nghe cua ws
+  void _subscribeListenGroupCreate() {
+    _client.subscribe(
+      headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+      destination: '/user/private/group-create',
+      callback: _onListenCreateGroup,
+    );
+  }
+
+  // khi co group bi xoa thi xoa group,locaiton,marker khoi map
+  void _subscribeListenGroupDisband(int groupId) {
+    _client.subscribe(
+      headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+      destination: '/topic/group-disband/$groupId',
+      callback: _onListenGroupDisband,
+    );
+  }
+
+  void _subscribeEventWebsocketGroups() {
+    for (var gr in _groups) {
+      _subscribeListenGroupDeletedLocation(gr.id ?? 0);
+      _subscribeListenGroupLocationAdd(gr.id ?? 0);
+      _subscribeListenGroupDisband(gr.id ?? 0);
+    }
+  }
+
+  void _subscribeListenGroupLocationAdd(int groupId) {
+    _client.subscribe(
+      headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
+      destination: '/topic/group-location-add/$groupId',
+      callback: _onListenGroupLocationAdd,
+    );
+  }
+
   void _onConnect(StompFrame frame) async {
     _groups = await _groupService.getGroups();
     if (_client.isActive) {
-      _client.subscribe(
-        headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
-        destination: '/user/private/friend-location',
-        callback: _onListenWs,
-      );
-      for (var gr in _groups) {
-        _client.subscribe(
-          headers: {'Authorization': 'Bearer ${_tokenResponse?.accessToken}'},
-          destination: '/topic/group-location/${gr.id}',
-          callback: _onListenGroupLocation,
-        );
-      }
+      _subscribeListenFriendLOnChangeLocation();
+      _subscribeListenGroupCreate();
+      _subscribeEventWebsocketGroups();
     } else {
       print("Cannot subscribe because connection is not active.");
     }
   }
 
-  void _onListenGroupLocation(StompFrame frame) async {
+  void _onListenGroupDisband(StompFrame frame) async {
+    if (frame.body != null) {
+      int groupId = int.parse(frame.body!);
+      List<LocationDto> locations =
+          _groupLocations.map((e) => e.locations).expand((e) => e).toList();
+      _markersGroup.removeWhere((marker) => locations
+          .any((element) => element.id.toString() == marker.markerId.value));
+      _groupLocations.removeWhere((element) => element.groupId == groupId);
+      _groups.removeWhere((element) => element.id == groupId);
+      print('"----------------------------------------');
+      add(UpdateMarkersEvent());
+    }
+  }
+
+  void _onListenDeletedGroupLocation(StompFrame frame) async {
+    if (frame.body != null) {
+      int locationId = int.parse(frame.body!);
+      _markersGroup.removeWhere(
+          (element) => element.markerId.value == locationId.toString());
+      for (var element in _groupLocations) {
+        element.locations.removeWhere((element) => element.id == locationId);
+      }
+      add(UpdateMarkersEvent());
+    }
+  }
+
+  void _onListenCreateGroup(StompFrame frame) async {
+    if (frame.body != null) {
+      GroupResponseDto groupResponseDto =
+          GroupResponseDto.fromJson(jsonDecode(frame.body!));
+      if (_groups.any((element) => element.id == groupResponseDto.id)) {
+        return;
+      }
+      _groups.add(groupResponseDto);
+      _subscribeListenGroupLocationAdd(groupResponseDto.id ?? 0);
+      _subscribeListenGroupDeletedLocation(groupResponseDto.id ?? 0);
+      _subscribeListenGroupDisband(groupResponseDto.id ?? 0);
+      add(UpdateMarkersEvent());
+    }
+  }
+
+  void _onListenGroupLocationAdd(StompFrame frame) async {
     if (frame.body != null) {
       // Parse String JSON thành List<dynamic>
       List<dynamic> jsonList = jsonDecode(frame.body!);
@@ -797,7 +906,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
   }
 
-  void _onListenWs(StompFrame frame) async {
+  void _onChangeFriendLocation(StompFrame frame) async {
     if (frame.body != null) {
       User userFriend = User.fromMap(jsonDecode(frame.body!));
       for (int i = 0; i < _markerUsers.length; i++) {
@@ -885,6 +994,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     LocationData currentLocation = await _location.getLocation();
     _currentPosition = currentLocation;
     _trafficEnabled = false;
+    // init user and friends
     await _initUserAndFriend(emit);
     // init _tokenResponse
     await _initToken(emit);
@@ -908,6 +1018,8 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       _currentMapType,
       _trafficEnabled,
       _isFollowCamera,
+      user: _user,
+      friends: _friends,
       googleMapController: null,
     ));
     _initWebsocket();

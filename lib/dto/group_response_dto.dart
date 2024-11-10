@@ -1,6 +1,5 @@
 import 'package:map/dto/base_dto.dart';
 import 'package:map/dto/user_group_status.dart';
-
 class GroupResponseDto extends BaseDto {
   String name;
   String description;
@@ -38,6 +37,24 @@ class GroupResponseDto extends BaseDto {
       permissions: List<String>.from(map['permissions'] ?? []),
       status: UserGroupStatus.values
           .firstWhere((e) => e.toString().split('.').last == map['status']),
+    );
+  }
+
+  // Factory method to create an instance from JSON
+  factory GroupResponseDto.fromJson(Map<String, dynamic> json) {
+    return GroupResponseDto(
+      id: json['id'],
+      createdBy: json['createdBy'],
+      updatedBy: json['updatedBy'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      name: json['name'],
+      description: json['description'],
+      totalMembers: json['totalMembers'] ?? 0,
+      role: json['role'],
+      permissions: List<String>.from(json['permissions'] ?? []),
+      status: UserGroupStatus.values
+          .firstWhere((e) => e.toString().split('.').last == json['status']),
     );
   }
 

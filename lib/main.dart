@@ -21,6 +21,7 @@ import 'package:map/service/group_service.dart';
 import 'package:map/service/location_search_history_service.dart';
 import 'package:map/service/notification_service.dart';
 import 'package:map/service/place_search.dart';
+import 'package:map/service/shared_location_service.dart';
 import 'package:map/service/sql_service.dart';
 import 'package:map/service/user_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -42,6 +43,7 @@ void main() async {
   getIt.registerLazySingleton<NotificationApiService>((() => NotificationApiService()));
   getIt.registerLazySingleton<NotificationLocalService>((() => NotificationLocalService()));
   getIt.registerLazySingleton<GroupService>((() => GroupService()));
+  getIt.registerLazySingleton<SharedLocationService>((() => SharedLocationService()));
   getIt.registerLazySingleton<AuthenticationService>(
       (() => AuthenticationService()));
 

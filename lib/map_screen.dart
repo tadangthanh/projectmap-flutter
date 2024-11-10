@@ -1,22 +1,22 @@
 import 'dart:ui';
 
 import 'package:circular_menu/circular_menu.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:map/bloc/map/map_bloc.dart';
 import 'package:map/bloc/map/map_state.dart';
 import 'package:map/common_view/loading.dart';
 import 'package:map/dto/group_location_request.dart';
-import 'package:map/dto/group_request_dto.dart';
 import 'package:map/dto/group_response_dto.dart';
 import 'package:map/dto/location_dto.dart';
+import 'package:map/dto/shared_location_request.dart';
 import 'package:map/entity/place.dart';
 import 'package:map/entity/place_type.dart';
 import 'package:map/entity/travel_mode_enum.dart';
+import 'package:map/entity/user.dart';
 
 import 'bloc/map/map_event.dart';
 import 'common_view/appbar_search.dart';
@@ -33,6 +33,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   final MapBloc _mapBloc = MapBloc();
   late TabController _tabController;
+  final TextEditingController _noteLocationController = TextEditingController();
   late AnimationController _controller;
   bool _isPanelOpen = false;
   final DraggableScrollableController _draggableScrollableController =
@@ -86,9 +87,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             return loading();
           } else if (state is MapErrorState) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _showAlertDialog(state);
+              _showAlert(context, state.message);
             });
           } else if (state is LoadedMapState) {
+            if (state.message != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _showAlert(context, state.message!);
+              });
+            }
             return Scaffold(
               // appBar: _buildAppBar(context, state),
               body: Stack(
@@ -224,7 +230,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       ? _draggableWidget(context, state)
                       : const SizedBox(),
                   // Làm mờ bản đồ và xử lý nhấn bên ngoài _buildWidgetFriend
-                  if (state.friendTapped != null || state.locationMarkerGroupTapped != null)
+                  if (state.friendTapped != null ||
+                      state.locationMarkerGroupTapped != null)
                     Positioned.fill(
                       child: GestureDetector(
                         onTap: () {
@@ -243,23 +250,26 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   // Hiển thị _buildWidgetFriend nếu friendTapped khác null
                   if (state.friendTapped != null)
                     _buildWidgetFriend(context, state),
-                  state.message != null
-                      ? Center(
-                          child: _showAlertDialog(state.message),
-                        )
-                      : const SizedBox(),
-
-                  state.isEnableDeleteMarkerGroup
-                      ? Center(
-                          child: _showAlertDialog('Xóa thành công'),
-                        )
-                      : const SizedBox(),
+                  // state.message != null
+                  //     ? Center(
+                  //   child: _showAlertDialog(state.message),
+                  // )
+                  //     : const SizedBox(),
+                  // state.isEnableDeleteMarkerGroup
+                  //     ? Center(
+                  //   child: _showAlertDialog('Xóa thành công'),
+                  // )
+                  //     : const SizedBox(),
                   // Display location information only when locationMarkerGroupTapped is available
                   if (state.locationMarkerGroupTapped != null)
-                    _buildLocationMarkerInfo(state.locationMarkerGroupTapped!,context, () {
-                      BlocProvider.of<MapBloc>(context).add(DeleteLocationGroupEvent(state.locationMarkerGroupTapped?.id??0));
+                    _buildLocationMarkerInfo(
+                        state.locationMarkerGroupTapped!, context, () {
+                      BlocProvider.of<MapBloc>(context).add(
+                          DeleteLocationGroupEvent(
+                              state.locationMarkerGroupTapped?.id ?? 0));
                     }, () {
-                      BlocProvider.of<MapBloc>(context).add(CloseLocationMarkerGroupTappedEvent());
+                      BlocProvider.of<MapBloc>(context)
+                          .add(CloseLocationMarkerGroupTappedEvent());
                     }),
                 ],
               ),
@@ -271,7 +281,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildLocationMarkerInfo(LocationDto location, BuildContext context, VoidCallback onDelete, VoidCallback onClose) {
+  Widget _buildLocationMarkerInfo(LocationDto location, BuildContext context,
+      VoidCallback onDelete, VoidCallback onClose) {
     return Positioned(
       top: 100,
       left: 20,
@@ -355,12 +366,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     child: const Text('Close'),
                   ),
                   TextButton(
-                    onPressed: (){
+                    onPressed: () {
                       onDelete();
                       onClose();
                     },
                     child: const Text('Delete'),
                   ),
+                  IconButton(
+                      onPressed: () {
+                        BlocProvider.of<MapBloc>(context)
+                            .add(SelectedLocationEvent(location));
+                        onClose();
+                      },
+                      icon: const Icon(
+                        Icons.arrow_right_alt_outlined,
+                        color: Colors.blueGrey,
+                      ))
                 ],
               ),
             ],
@@ -369,7 +390,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
 
   Widget _buildListShortcut(context, state) {
     return SingleChildScrollView(
@@ -965,7 +985,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   Widget _buildDirectionAndMoreFeatureButtons(
       BuildContext context, state, Place place) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _directionFunctionButton(
             context, state, 'Đường đi', Icons.directions, Colors.blueAccent,
@@ -977,37 +997,266 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           ));
         }),
         // Nút More với PopupMenuButton để hiển thị các chức năng khác
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_horiz_outlined, color: Colors.grey),
-          onSelected: (value) {
-            if (value == 'share') {
-              // Thực hiện chức năng chia sẻ với nhóm
-              // _shareWithGroup(context);
-              _addMarker(LatLng(place.latitude, place.longitude));
-            } else if (value == 'another_action') {
-              // Thực hiện chức năng khác
-              _anotherFunction(context);
-            }
+        // PopupMenuButton<String>(
+        //   child: const Row(
+        //     children: [
+        //       Text("Chia sẻ"),
+        //       SizedBox(width: 5),
+        //       Icon(Icons.arrow_outward, color: Colors.grey),
+        //     ],
+        //   ),
+        //   onSelected: (value) {
+        //     if (value == 'share') {
+        //       _addMarker(LatLng(place.latitude, place.longitude));
+        //     } else if (value == 'friend') {
+        //    _showBottomMenu(context);
+        //     }
+        //   },
+        //   itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        //     ..._buildPopupMenuItems(state),
+        //   ],
+        // ),
+        TextButton(
+            onPressed: () {
+              _showBottomMenu(context, state);
+            },
+            child: const Row(
+              children: [
+                Text("Chia sẻ", style: TextStyle(color: Colors.grey)),
+                SizedBox(width: 5),
+                Icon(Icons.arrow_outward, color: Colors.grey),
+              ],
+            )),
+      ],
+    );
+  }
+
+  void _showBottomMenu(context, state) {
+    List<User> friends = state.friends;
+    User user = state.user!;
+    Set<User> selectedFriends = {}; // Danh sách lưu các bạn bè đã chọn
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) => Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: NetworkImage(user.avatarUrl),
+                    ),
+                    title: Text(
+                      user.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _noteLocationController,
+                    maxLength: 255,
+                    decoration: const InputDecoration(
+                      hintText: 'Hãy viết gì đó về địa điểm này...',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Gửi cho tất cả những người trong danh sách selectedFriends
+                      _sendSharedLocation(selectedFriends, state);
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      backgroundColor: Colors.blueAccent,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 15.0, vertical: 10.0),
+                    ),
+                    child: const Text(
+                      'Chia sẻ ngay',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Chia sẻ cho bạn bè',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 90,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: friends.length,
+                      itemBuilder: (context, index) {
+                        User friend = friends[index];
+                        bool isSelected = selectedFriends.contains(friend);
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Column(
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    if (isSelected) {
+                                      selectedFriends.remove(friend);
+                                    } else {
+                                      selectedFriends.add(friend);
+                                    }
+                                  });
+                                },
+                                child: Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundImage:
+                                          NetworkImage(friend.avatarUrl),
+                                      radius: 30,
+                                    ),
+                                    if (isSelected)
+                                      const Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Icon(
+                                          Icons.indeterminate_check_box_sharp,
+                                          color: Colors.grey,
+                                          size: 24,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                friend.name,
+                                style: const TextStyle(fontSize: 11),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Chia sẻ lên',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    children: [
+                      _buildShareOption(context, Icons.group, 'Nhóm', state),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShareOption(context, IconData icon, String label, state) {
+    Place place = state.place;
+    return Column(
+      children: [
+        InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            _addMarker(LatLng(place.latitude, place.longitude));
           },
-          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-            const PopupMenuItem<String>(
-              value: 'share',
-              child: ListTile(
-                leading: Icon(Icons.share, color: Colors.blueAccent),
-                title: Text('Chia sẻ với nhóm'),
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'another_action',
-              child: ListTile(
-                leading: Icon(Icons.settings, color: Colors.greenAccent),
-                title: Text('Chức năng khác'),
-              ),
-            ),
-          ],
+          child: CircleAvatar(
+            radius: 25,
+            backgroundColor: Colors.blueAccent,
+            child: Icon(icon, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+          textAlign: TextAlign.center,
         ),
       ],
     );
+  }
+
+// Hàm để gửi thông tin chia sẻ cho các bạn đã chọn
+  void _sendSharedLocation(Set<User> selectedFriends, state) {
+    Place place = state.place;
+    String note = _noteLocationController.text;
+    List<int> friendIds = selectedFriends.map((e) => e.id!).toList();
+    SharedLocationRequest shareLocationRequest = SharedLocationRequest(
+      receiverIds: friendIds,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      note: note,
+    );
+    _mapBloc.add(SharedLocationEvent(shareLocationRequest));
+    Fluttertoast.showToast(
+        msg: "Đã gửi",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.TOP,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.grey,
+        textColor: Colors.white,
+        fontSize: 16.0
+    );
+  }
+
+  List<PopupMenuItem<String>> _buildPopupMenuItems(state) {
+    List<PopupMenuItem<String>> items = [];
+    if (state.groups.length > 0) {
+      items.add(
+        const PopupMenuItem<String>(
+          value: 'group',
+          child: ListTile(
+            leading: Icon(Icons.group, color: Colors.black),
+            title: Text('Nhóm'),
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+    return [
+      ...items,
+      const PopupMenuItem<String>(
+        value: 'friend',
+        child: ListTile(
+          leading: Icon(Icons.person, color: Colors.black),
+          title: Text('Bạn bè'),
+          trailing: Icon(
+            Icons.arrow_forward_ios,
+            color: Colors.grey,
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildStartAndCancelButtons(BuildContext context, state) {
@@ -1043,22 +1292,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           },
         ),
       ],
-    );
-  }
-
-// Ví dụ về hàm chia sẻ với nhóm
-  void _shareWithGroup(BuildContext context) {
-    // Thực hiện hành động chia sẻ với nhóm
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã chia sẻ với nhóm!')),
-    );
-  }
-
-// Ví dụ về hàm cho chức năng khác
-  void _anotherFunction(BuildContext context) {
-    // Thực hiện hành động khác
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã thực hiện chức năng khác!')),
     );
   }
 
@@ -1523,18 +1756,26 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _showAlertDialog(message) {
-    return AlertDialog(
-      title: const Text('Thông báo'),
-      content: Text(message),
-      actions: [
-        TextButton(
-          onPressed: () {
-            _mapBloc.add(ClearMessageEvent());
-          },
-          child: const Text('OK'),
-        ),
-      ],
+  void _showAlert(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Thông báo'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Đóng AlertDialog
+                _mapBloc.add(ClearMessageEvent()); // Gửi sự kiện để xử lý tiếp
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+      barrierDismissible:
+          false, // Đảm bảo người dùng phải nhấn nút "OK" để đóng
     );
   }
 
@@ -1554,7 +1795,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           if (mounted) {
             // Sử dụng BuildContext nếu widget còn tồn tại
             BlocProvider.of<MapBloc>(context)
-                .add(SelectedLocationEvent(result));
+                .add(SelectedLocationEvent(LocationDto(
+              latitude: result.latitude,
+              longitude: result.longitude,
+              name: 'Địa điểm đánh dấu',
+              description: '',
+            )));
           }
         },
         style: TextButton.styleFrom(

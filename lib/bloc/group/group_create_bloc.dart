@@ -44,7 +44,7 @@ class GroupCreateBloc extends Bloc<GroupCreateEvent, GroupCreateState> {
       GroupResponseDto groupResponseDto = await _groupService.createGroup(groupRequestDto);
       emit(GrcSuccessState(groupResponseDto: groupResponseDto));
     } catch (e) {
-      emit(GrcErrorState(message: e.toString()));
+      emit(GrcErrorState(message: e.toString().split("Exception:").last));
     }
   }
 
