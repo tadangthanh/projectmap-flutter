@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="facebook_app_id">1323130395318779</string>
-    <string name="facebook_client_token">f6714d300a8bb5cb82050be744356eb8</string>
-    <string name="google_maps_key">AIzaSyAUWLhzZyJhxCSEiAYwSucwgZTfxU6w2Cs</string>
+    <string name="facebook_client_token"></string>
+    <string name="google_maps_key"></string>
 </resources>
