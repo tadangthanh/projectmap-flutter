@@ -15,7 +15,7 @@ import 'package:map/entity/travel_mode_enum.dart';
 import '../entity/place_prediction.dart';
 
 class PlaceSearch {
-  final String apiKey = 'AIzaSyAUWLhzZyJhxCSEiAYwSucwgZTfxU6w2Cs';
+  final String apiKey = '';
 
   Future<List<PlacePrediction>> getAutocomplete(String search) async {
     final String url =
